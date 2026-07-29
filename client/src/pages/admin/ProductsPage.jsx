@@ -174,7 +174,7 @@ export default function ProductsPage() {
         name: variant.name.trim(),
         sku: variant.sku.trim().toUpperCase(),
         price: Number(variant.price) || 0,
-        discountPrice: variant.discountPrice ? Number(variant.discountPrice) : null,
+        discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : null,
         stock: Number(variant.stock) || 0,
         unit: variant.unit.trim() || "pcs",
         images: Array.isArray(variant.images)
@@ -194,7 +194,7 @@ export default function ProductsPage() {
     setProducts((prev) => {
       const next = selectedProduct
         ? prev.map((item) => (item.id === selectedProduct.id ? payload : item))
-        : [payload, ...prev];
+        : [payload, ...prev.filter((item) => item.id !== payload.id)];
       // Persist locally first for immediate feedback
       persistProducts(next);
       // Try persisting to backend; non-blocking

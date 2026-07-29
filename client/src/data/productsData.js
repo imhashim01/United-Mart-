@@ -54,7 +54,7 @@ export const normalizeProduct = (product, fallbackId = null) => {
           name: variant.name || variant.sku || `Variant ${index + 1}`,
           sku: String(variant.sku || "").toUpperCase(),
           price: Number(variant.price) || 0,
-          discountPrice: variant.discountPrice != null ? Number(variant.discountPrice) : null,
+          discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : null,
           stock: Number(variant.stock) || 0,
           unit: variant.unit?.trim() || "pcs",
           isDefault: Boolean(variant.isDefault),

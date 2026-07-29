@@ -4,7 +4,7 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import { adminBrands } from "../../data/adminData";
-import { persistBrandObjects } from "../../utils/persistedData";
+import { persistBrandNames, persistBrandObjects } from "../../utils/persistedData";
 
 export default function BrandsPage() {
   const [brands, setBrands] = useState(adminBrands);
@@ -32,6 +32,7 @@ export default function BrandsPage() {
       setBrands((prev) => {
         const next = prev.filter((item) => item.id !== brand.id);
         persistBrandObjects(next);
+        persistBrandNames(next.map((item) => item.name));
         adminBrands.splice(0, adminBrands.length, ...next);
         return next;
       });
@@ -51,10 +52,12 @@ export default function BrandsPage() {
     setBrands((prev) => {
       const next = selectedBrand
         ? prev.map((item) => (item.id === selectedBrand.id ? payload : item))
-        : [payload, ...prev];
-      persistBrandObjects(next);
-      adminBrands.splice(0, adminBrands.length, ...next);
-      return next;
+        : [payload, ...prev.filter((item) => item.id !== payload.id)];
+      const uniqueNext = Array.from(new Map(next.map((item) => [item.id, item])).values());
+      persistBrandObjects(uniqueNext);
+      persistBrandNames(uniqueNext.map((item) => item.name));
+      adminBrands.splice(0, adminBrands.length, ...uniqueNext);
+      return uniqueNext;
     });
     setModalOpen(false);
   };

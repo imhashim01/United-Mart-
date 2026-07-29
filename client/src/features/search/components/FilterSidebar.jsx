@@ -2,7 +2,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import clsx from "clsx";
-import { categoriesList, brandsList, priceRange } from "../../../data/productsData";
+import { categoriesList, brandsList as defaultBrandsList, priceRange } from "../../../data/productsData";
+import { getPersistedBrandNames } from "../../../utils/persistedData";
 import { formatPrice } from "../../../utils/formatCurrency";
 
 function FilterGroup({ title, children, defaultOpen = true }) {
@@ -59,6 +60,8 @@ function Checkbox({ checked, onChange, label, count }) {
 }
 
 export default function FilterSidebar({ filters, onChange, productCounts }) {
+  const brandsList = getPersistedBrandNames(defaultBrandsList);
+
   const toggleArrayValue = (key, value) => {
     const current = filters[key];
     onChange({
