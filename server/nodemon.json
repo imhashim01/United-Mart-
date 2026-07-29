@@ -1,8 +1,8 @@
 {
-  "watch": ["src"],
+  "watch": ["server.js", "src"],
   "ext": "js,json",
   "ignore": ["src/**/*.test.js", "uploads/*"],
-  "exec": "node src/server.js",
+  "exec": "node",
   "env": {
     "NODE_ENV": "development"
   }
