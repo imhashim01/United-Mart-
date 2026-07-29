@@ -43,9 +43,9 @@ export default function Footer() {
   useEffect(() => {
     setSettings(getPersistedSettings({
       storeName: "United Mart Sukkur",
-      supportEmail: "support@unitedmartsukkur.pk",
-      supportPhone: "+92 300 1234567",
-      address: "Station Road, Sukkur, Sindh, Pakistan",
+      supportEmail: "unitedmartsukkur@gmail.com",
+      supportPhone: "+92 333 7111954",
+      address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
     }));
   }, []);
 
