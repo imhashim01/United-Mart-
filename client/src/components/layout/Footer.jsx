@@ -2,7 +2,7 @@ import { Facebook, Instagram, MessageCircleMore, MapPin, Phone, Mail } from "luc
 import { Link } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
 import { useEffect, useState } from "react";
-import { getPersistedSettings } from "../../utils/persistedData";
+import { getPersistedSettings, getPersistedCategoryObjects } from "../../utils/persistedData";
 
 const FOOTER_COLUMNS = [
   {
@@ -39,6 +39,7 @@ const FOOTER_COLUMNS = [
 
 export default function Footer() {
   const [settings, setSettings] = useState(null);
+  const [categoryLinks, setCategoryLinks] = useState(FOOTER_COLUMNS[0].links);
 
   useEffect(() => {
     setSettings(getPersistedSettings({
@@ -47,6 +48,13 @@ export default function Footer() {
       supportPhone: "+92 333 7111954",
       address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
     }));
+    // Load persisted categories (if admin edited them) and convert to footer links
+    const cats = getPersistedCategoryObjects([]);
+    if (Array.isArray(cats) && cats.length > 0) {
+      setCategoryLinks(
+        cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
+      );
+    }
   }, []);
 
   const storeName = settings?.storeName ?? "United Mart Sukkur";
@@ -88,11 +96,11 @@ export default function Footer() {
           </div>
 
           {/* Link columns */}
-          {FOOTER_COLUMNS.map((col) => (
+          {FOOTER_COLUMNS.map((col, idx) => (
             <div key={col.title}>
               <h4 className="text-sm font-semibold text-white mb-4">{col.title}</h4>
               <ul className="space-y-2.5">
-                {col.links.map((link) => (
+                {(idx === 0 ? categoryLinks : col.links).map((link) => (
                   <li key={link.href}>
                     <Link
                       to={link.href}

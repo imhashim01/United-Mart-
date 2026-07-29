@@ -26,10 +26,12 @@ export default function ShopPage() {
   const query = searchParams.get("q") ?? "";
   const filterParam = searchParams.get("filter") ?? "";
   const brandParam = searchParams.get("brand") ?? "";
+  const categoryParam = searchParams.get("category") ?? "";
 
   const [filters, setFilters] = useState({
     ...defaultFilters,
     brands: brandParam ? [brandParam] : [],
+    categories: categoryParam ? [categoryParam] : [],
   });
   const [sortBy, setSortBy] = useState("relevance");
   const [page, setPage] = useState(1);
@@ -141,6 +143,14 @@ export default function ShopPage() {
     }
   }, [brandParam]);
 
+  useEffect(() => {
+    if (categoryParam) {
+      setFilters((prev) => ({ ...prev, categories: [categoryParam] }));
+      setPage(1);
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, [categoryParam]);
+
   const handleFilterChange = (next) => {
     setFilters(next);
     setPage(1);
@@ -166,6 +176,8 @@ export default function ShopPage() {
           <h1 className="font-display text-2xl md:text-3xl text-orchard-900 mb-1.5">
             {filterParam === "deals"
               ? "Today’s Deals"
+              : categoryParam
+              ? `Shop ${categoryParam}`
               : brandParam
               ? `Shop ${brandParam}`
               : query

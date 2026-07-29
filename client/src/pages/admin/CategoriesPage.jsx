@@ -4,7 +4,7 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import { categoryObjects, getProducts } from "../../data/productsData";
-import { persistCategoryObjects, persistProducts } from "../../utils/persistedData";
+import { persistCategoryObjects, persistProducts, persistCategoryNames } from "../../utils/persistedData";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState(categoryObjects);
@@ -43,6 +43,8 @@ export default function CategoriesPage() {
       setCategories((prev) => {
         const next = prev.filter((item) => item.id !== category.id);
         persistCategoryObjects(next);
+        // update persisted category names for filters/footer
+        persistCategoryNames(next.map((c) => c.name));
         return next;
       });
     }
@@ -73,6 +75,8 @@ export default function CategoriesPage() {
           ];
 
       persistCategoryObjects(next);
+      // update persisted category names for filters/footer
+      persistCategoryNames(next.map((c) => c.name));
 
       if (selectedCategory && selectedCategory.name !== nextName) {
         const nextProducts = getProducts().map((product) =>

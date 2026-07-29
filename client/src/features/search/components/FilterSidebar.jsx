@@ -2,8 +2,8 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronDown, RotateCcw } from "lucide-react";
 import clsx from "clsx";
-import { categoriesList, brandsList as defaultBrandsList, priceRange } from "../../../data/productsData";
-import { getPersistedBrandNames } from "../../../utils/persistedData";
+import { categoriesList as defaultCategoriesList, brandsList as defaultBrandsList, priceRange } from "../../../data/productsData";
+import { getPersistedBrandNames, getPersistedCategoryNames } from "../../../utils/persistedData";
 import { formatPrice } from "../../../utils/formatCurrency";
 
 function FilterGroup({ title, children, defaultOpen = true }) {
@@ -60,6 +60,7 @@ function Checkbox({ checked, onChange, label, count }) {
 }
 
 export default function FilterSidebar({ filters, onChange, productCounts }) {
+  const categories = getPersistedCategoryNames(defaultCategoriesList);
   const brandsList = getPersistedBrandNames(defaultBrandsList);
 
   const toggleArrayValue = (key, value) => {
@@ -107,7 +108,7 @@ export default function FilterSidebar({ filters, onChange, productCounts }) {
 
       {/* Category */}
       <FilterGroup title="Category">
-        {categoriesList.map((cat) => (
+        {categories.map((cat) => (
           <Checkbox
             key={cat}
             label={cat}
