@@ -8,18 +8,10 @@ import ProductGrid from "../features/products/components/ProductGrid";
 import FilterSidebar from "../features/search/components/FilterSidebar";
 import SortDropdown from "../features/search/components/SortDropdown";
 import Pagination from "../features/search/components/Pagination";
-import { getProducts, priceRange } from "../data/productsData";
+import { getProducts, getPriceRange } from "../data/productsData";
 
 const PAGE_SIZE = 12;
 
-const defaultFilters = {
-  categories: [],
-  brands: [],
-  priceMin: priceRange.min,
-  priceMax: priceRange.max,
-  inStockOnly: false,
-  discountedOnly: false,
-};
 
 export default function ShopPage() {
   const [searchParams] = useSearchParams();
@@ -28,10 +20,14 @@ export default function ShopPage() {
   const brandParam = searchParams.get("brand") ?? "";
   const categoryParam = searchParams.get("category") ?? "";
 
+  const priceRange = getPriceRange();
   const [filters, setFilters] = useState({
-    ...defaultFilters,
-    brands: brandParam ? [brandParam] : [],
     categories: categoryParam ? [categoryParam] : [],
+    brands: brandParam ? [brandParam] : [],
+    priceMin: priceRange.min,
+    priceMax: priceRange.max,
+    inStockOnly: false,
+    discountedOnly: false,
   });
   const [sortBy, setSortBy] = useState("relevance");
   const [page, setPage] = useState(1);

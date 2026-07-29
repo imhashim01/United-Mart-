@@ -1,19 +1,10 @@
-// Mock data for homepage development.
-// Categories, Featured Products, and Brands are now derived live from the
-// same persisted data the admin panel edits (products, categoriesList,
-// adminBrands) — so admin changes actually show up here after a reload.
-
-import { getProducts, categoryObjects } from "./productsData";
-import { adminBrands } from "./adminData";
+import { getProducts, getCategoryObjects, getBrandsList, getBrandObjects } from "./productsData";
 
 const findProduct = (id) => getProducts().find((product) => product.id === id) ?? null;
-
-// Static image/slug lookup for known category names — falls back to a
-// generic image + auto-generated slug for any new category an admin adds.
 const FALLBACK_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80";
 
 export const getCategories = () =>
-  categoryObjects.map((category) => ({
+  getCategoryObjects().map((category) => ({
     id: category.id,
     name: category.name,
     slug: category.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -22,44 +13,31 @@ export const getCategories = () =>
   }));
 
 export const getTodaysDeals = () =>
-  // Prefer admin-marked today's deals; fallback to a few seeded picks
-  (getProducts().filter((p) => p.isTodaysDeal) .length > 0
+  (getProducts().filter((p) => p.isTodaysDeal).length > 0
     ? getProducts().filter((p) => p.isTodaysDeal)
-    : [
-        findProduct("prod-15"),
-        findProduct("prod-8"),
-        findProduct("prod-9"),
-        findProduct("prod-12"),
-        findProduct("prod-16"),
-        findProduct("prod-14"),
-      ].filter(Boolean))
-    .map((product) => ({ ...product, endsIn: "6h 20m" }));
+    : getProducts().filter((p) => p.discount > 0).slice(0, 6)
+  ).map((product) => ({ ...product, endsIn: "6h 20m" }));
 
-export const todaysDeals = getTodaysDeals();
-
-// Live: featured products show badge items first, then newest added items if there are fewer than eight badge products.
 export const getFeaturedProducts = () =>
-  // Admin-marked featured items first, then fallback to badge/newest
   [
     ...getProducts().filter((p) => p.isFeatured),
     ...getProducts().filter((p) => p.badge && !p.isFeatured),
     ...getProducts().filter((p) => !p.badge && !p.isFeatured),
   ].slice(0, 8);
 
-// Live: top 5 products by rating — self-heals if a hardcoded pick gets deleted
 export const getBestSellers = () =>
-  // Admin-marked best sellers take precedence, otherwise derive from rating
   (getProducts().filter((p) => p.isBestSeller).length
     ? getProducts().filter((p) => p.isBestSeller)
-    : [...getProducts()].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0)).slice(0, 5))
+    : [...getProducts()].sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0))
+  )
     .slice(0, 5)
     .map((product, i) => ({ ...product, rank: i + 1 }));
 
-// Live: active brands from the admin-managed brand list
-export const brands = adminBrands
-  .filter((b) => b.status === "Active")
-  .slice(0, 6)
-  .map((b) => ({ id: b.id, name: b.name, logo: b.logo }));
+export const getBrands = () =>
+  getBrandObjects()
+    .filter((b) => b.status === "Active")
+    .slice(0, 6)
+    .map((b) => ({ id: b.id, name: b.name, logo: b.logo }));
 
 export const testimonials = [
   { id: "t-1", name: "Ayesha Raza", role: "Verified Buyer, Sukkur", quote: "The mangoes arrived riper and fresher than what I get at the local market — and same-day delivery actually meant same day.", rating: 5, avatar: "https://i.pravatar.cc/100?img=47" },

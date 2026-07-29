@@ -4,7 +4,6 @@ const STORAGE_KEYS = {
   brandObjects: "ums-brand-objects",
   categoryNames: "ums-category-names",
   categoryObjects: "ums-category-objects",
-  settings: "ums-settings",
   coupons: "ums-coupons",
   adminUsers: "ums-admin-users",
 };
@@ -50,9 +49,6 @@ export const persistCategoryNames = (categories) => writePersistedData(STORAGE_K
 
 export const getPersistedCategoryObjects = (seedCategories) => readPersistedData(STORAGE_KEYS.categoryObjects, seedCategories);
 export const persistCategoryObjects = (categories) => writePersistedData(STORAGE_KEYS.categoryObjects, categories);
-
-export const getPersistedSettings = (seedSettings) => readPersistedData(STORAGE_KEYS.settings, seedSettings);
-export const persistSettings = (settings) => writePersistedData(STORAGE_KEYS.settings, settings);
 
 export const getPersistedCoupons = (seedCoupons) => readPersistedData(STORAGE_KEYS.coupons, seedCoupons);
 export const persistCoupons = (coupons) => writePersistedData(STORAGE_KEYS.coupons, coupons);
