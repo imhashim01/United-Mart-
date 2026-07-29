@@ -8,23 +8,23 @@ import morgan from 'morgan';
 import compression from 'compression';
 import dotenv from 'dotenv';
 
-import authRoutes from './modules/auth/routes/authRoutes.js';
-import userRoutes from './modules/users/routes/userRoutes.js';
-import adminRoutes from './modules/admin/routes/adminRoutes.js';
-import categoryRoutes from './modules/categories/routes/categoryRoutes.js';
-import brandRoutes from './modules/brands/routes/brandRoutes.js';
-import productRoutes from './modules/products/routes/productRoutes.js';
-import cartRoutes from './modules/cart/routes/cartRoutes.js';
-import orderRoutes from './modules/orders/routes/orderRoutes.js';
-import couponRoutes from './modules/coupons/routes/couponRoutes.js';
-import rewardRoutes from './modules/rewards/routes/rewardRoutes.js';
-import paymentRoutes from './modules/payments/routes/paymentRoutes.js';
-import invoiceRoutes from './modules/invoices/routes/invoiceRoutes.js';
-import reviewRoutes from './modules/reviews/routes/reviewRoutes.js';
-import notificationRoutes from './modules/notifications/routes/notificationRoutes.js';
-import reportRoutes from './modules/reports/routes/reportRoutes.js';
+import authRoutes from './src/modules/auth/routes/authRoutes.js';
+import userRoutes from './src/modules/users/routes/userRoutes.js';
+import adminRoutes from './src/modules/admin/routes/adminRoutes.js';
+import categoryRoutes from './src/modules/categories/routes/categoryRoutes.js';
+import brandRoutes from './src/modules/brands/routes/brandRoutes.js';
+import productRoutes from './src/modules/products/routes/productRoutes.js';
+import cartRoutes from './src/modules/cart/routes/cartRoutes.js';
+import orderRoutes from './src/modules/orders/routes/orderRoutes.js';
+import couponRoutes from './src/modules/coupons/routes/couponRoutes.js';
+import rewardRoutes from './src/modules/rewards/routes/rewardRoutes.js';
+import paymentRoutes from './src/modules/payments/routes/paymentRoutes.js';
+import invoiceRoutes from './src/modules/invoices/routes/invoiceRoutes.js';
+import reviewRoutes from './src/modules/reviews/routes/reviewRoutes.js';
+import notificationRoutes from './src/modules/notifications/routes/notificationRoutes.js';
+import reportRoutes from './src/modules/reports/routes/reportRoutes.js';
 
-import { errorHandler, notFound } from './middlewares/errorHandler.js';
+import { errorHandler, notFound } from './src/middlewares/errorHandler.js';
 
 dotenv.config();
 
