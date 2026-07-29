@@ -60,7 +60,7 @@ export default function App() {
         <Route path="/register" element={<AuthPage mode="register" />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password/:token?" element={<ResetPasswordPage />} />
-        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        <Route path="/verify-email/:token?" element={<VerifyEmailPage />} />
         <Route path="/about" element={<InfoPage pageKey="about" title="About United Mart" description="United Mart Sukkur brings fresh groceries, pantry staples, and everyday essentials straight to your doorstep with reliable delivery, competitive prices, and a seamless shopping experience." eyebrow="About Us" />} />
         <Route path="/contact" element={<InfoPage pageKey="contact" title="Contact United Mart" description="We are always here to help. Reach out by phone, WhatsApp, or email and we’ll respond quickly." eyebrow="Contact Us" />} />
         <Route path="/delivery-info" element={<InfoPage pageKey="delivery" title="Delivery Information" description="United Mart Sukkur offers fast and reliable grocery delivery across Sukkur and nearby areas." eyebrow="Delivery Information" />} />

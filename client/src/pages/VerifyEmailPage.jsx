@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useParams, Link } from 'react-router-dom';
 import { useAuthStore } from '../features/auth/hooks/useAuth';
 import toast from 'react-hot-toast';
 
 export default function VerifyEmailPage() {
   const [searchParams] = useSearchParams();
+  const { token: pathToken } = useParams();
   const { verifyEmail, loading } = useAuthStore();
   const [status, setStatus] = useState('loading');
 
   useEffect(() => {
-    const token = searchParams.get('token');
+    const token = searchParams.get('token') || pathToken;
     if (!token) {
       setStatus('error');
       return;
@@ -23,7 +24,7 @@ export default function VerifyEmailPage() {
       .catch(() => {
         setStatus('error');
       });
-  }, [searchParams, verifyEmail]);
+  }, [searchParams, pathToken, verifyEmail]);
 
   return (
     <div className="min-h-screen bg-linen-50 flex items-center justify-center px-4 py-12">

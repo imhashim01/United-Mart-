@@ -86,13 +86,22 @@ export default function Header() {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/login"
-                aria-label="Account"
-                className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full hover:bg-linen-50 transition-colors"
-              >
-                <User size={20} className="text-charcoal-900" />
-              </Link>
+              <>
+                <Link
+                  to="/login"
+                  aria-label="Account"
+                  className="hidden sm:flex h-10 w-10 items-center justify-center rounded-full hover:bg-linen-50 transition-colors"
+                >
+                  <User size={20} className="text-charcoal-900" />
+                </Link>
+                <Link
+                  to="/login"
+                  aria-label="Account"
+                  className="flex sm:hidden h-10 w-10 items-center justify-center rounded-full hover:bg-linen-50 transition-colors"
+                >
+                  <User size={20} className="text-charcoal-900" />
+                </Link>
+              </>
             )}
             <Link
               to="/cart"
