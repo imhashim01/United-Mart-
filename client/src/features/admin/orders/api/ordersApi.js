@@ -97,8 +97,6 @@ const normalizeOrderResponse = (response) => {
 };
 
 export const listOrders = async (params = {}) => {
-  // The backend caps limit at 100 (listOrdersQuerySchema) — anything higher
-  // gets a 400, which silently emptied every page that called this.
   const safeParams = { ...params };
   if (safeParams.limit == null || safeParams.limit > 100) {
     safeParams.limit = 100;

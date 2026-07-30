@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 import { Search, Eye, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
@@ -14,6 +15,7 @@ const PAGE_SIZE = 10;
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -21,7 +23,10 @@ export default function OrdersPage() {
         const { data } = await ordersApi.listOrders({ limit: 200 });
         setOrders(data.data || []);
       } catch (error) {
-        console.error('Failed to load orders:', error?.response || error.message);
+        const message = error?.response?.data?.message || error.message || "Unknown error";
+        console.error("Failed to fetch dashboard orders:", error?.response?.data || error);
+        setLoadError(message);
+        toast.error(`Couldn't load orders: ${message}`);
       }
     })();
   }, []);
@@ -69,6 +74,11 @@ export default function OrdersPage() {
 
   return (
     <AdminLayout title="Orders">
+      {loadError && (
+  <div className="mb-5 rounded-[var(--radius-md)] border border-danger-600/30 bg-danger-100 px-4 py-3 text-sm text-danger-600">
+    Couldn't load orders: {loadError}
+  </div>
+)}
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
         <div className="relative flex-1 max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-charcoal-300" />

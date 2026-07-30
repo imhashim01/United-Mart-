@@ -3,6 +3,7 @@ import {
   PieChart, Pie, Cell, BarChart, Bar, Legend,
 } from "recharts";
 import { useEffect, useMemo, useState } from "react";
+import toast from "react-hot-toast";
 import { DollarSign, ShoppingBag, Users, TrendingUp } from "lucide-react";
 import AdminLayout from "../../layouts/AdminLayout";
 import StatCard from "../../components/admin/StatCard";
@@ -32,14 +33,19 @@ function ChartCard({ title, subtitle, children }) {
 
 export default function DashboardPage() {
   const [orders, setOrders] = useState([]);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await ordersApi.listOrders({ limit: 200 });
+        const { data } = await ordersApi.listOrders({ limit: 100 });
         setOrders(data.data || []);
+        setLoadError(null);
       } catch (error) {
-        console.error('Failed to fetch dashboard orders:', error?.response || error.message);
+        const message = error?.response?.data?.message || error.message || "Unknown error";
+        console.error("Failed to fetch dashboard orders:", error?.response?.data || error);
+        setLoadError(message);
+        toast.error(`Couldn't load orders: ${message}`);
       }
     })();
   }, []);
@@ -120,6 +126,11 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout title="Dashboard">
+      {loadError && (
+  <div className="mb-5 rounded-[var(--radius-md)] border border-danger-600/30 bg-danger-100 px-4 py-3 text-sm text-danger-600">
+    Couldn't load orders: {loadError}
+  </div>
+)}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
         <StatCard
           label="Total Revenue"
