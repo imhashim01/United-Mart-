@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Pencil, Trash2, Plus, Ticket, X } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
@@ -40,7 +40,7 @@ export default function CouponsPage() {
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const payload = {
       id: selectedCoupon?.id ?? `coupon-${Date.now()}`,
@@ -75,7 +75,7 @@ export default function CouponsPage() {
   };
 
   // Load coupons on mount
-  useState(() => {
+  useEffect(() => {
     (async () => {
       try {
         const { data } = await couponsApi.listCoupons({ limit: 100 });
@@ -85,8 +85,7 @@ export default function CouponsPage() {
         // fallback: keep empty list
       }
     })();
-    return undefined;
-  });
+  }, []);
 
   return (
     <AdminLayout title="Coupons">
