@@ -162,6 +162,15 @@ export default function ProductsPage() {
             stock: Number(variant.stock) || 0,
             unit: variant.unit.trim() || "pcs",
             isDefault: Boolean(variant.isDefault),
+            images: Array.isArray(variant.images) && variant.images.length > 0
+              ? variant.images.map((img, i) => ({
+                  url: img.imageUrl || img.url || img.thumbnailUrl || "",
+                  publicId: img.id || `manual-variant-${Date.now()}-${i}`,
+                  altText: img.altText || "",
+                  sortOrder: Number(img.sortOrder ?? i),
+                  isPrimary: Boolean(img.isPrimary),
+                }))
+              : undefined,
           }))
         : undefined,
     };
@@ -316,6 +325,43 @@ export default function ProductsPage() {
                   <span className="mb-1.5 block">Image URL</span>
                   <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://example.com/image.jpg" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
                 </label>
+                <div className="md:col-span-2">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-medium text-charcoal-900">Variants</h4>
+                    <button type="button" onClick={addVariant} className="h-9 rounded-[var(--radius-md)] bg-orchard-900 px-3 text-sm font-semibold text-white">Add Variant</button>
+                  </div>
+                  {form.variants.length === 0 && (
+                    <p className="text-sm text-charcoal-600">No variants — add one above to create multiple SKUs.</p>
+                  )}
+                  <div className="space-y-3">
+                    {form.variants.map((variant, idx) => (
+                      <div key={variant.id} className="rounded-[var(--radius-sm)] border border-border p-3 bg-white">
+                        <div className="grid gap-2 sm:grid-cols-3">
+                          <input placeholder="Name" value={variant.name} onChange={(e) => handleVariantChange(idx, 'name', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                          <input placeholder="SKU" value={variant.sku} onChange={(e) => handleVariantChange(idx, 'sku', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                          <input placeholder="Price" type="number" min="0" value={variant.price} onChange={(e) => handleVariantChange(idx, 'price', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                        </div>
+                        <div className="mt-2 grid gap-2 sm:grid-cols-3">
+                          <input placeholder="Discount" type="number" min="0" value={variant.discountPrice} onChange={(e) => handleVariantChange(idx, 'discountPrice', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                          <input placeholder="Stock" type="number" min="0" value={variant.stock} onChange={(e) => handleVariantChange(idx, 'stock', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                          <input placeholder="Unit" value={variant.unit} onChange={(e) => handleVariantChange(idx, 'unit', e.target.value)} className="rounded-[var(--radius-sm)] border border-border-strong px-2 py-2" />
+                        </div>
+                        <div className="mt-2 flex items-center justify-between gap-3">
+                          <label className="flex items-center gap-2 text-sm">
+                            <input type="radio" name="defaultVariant" checked={Boolean(variant.isDefault)} onChange={() => setDefaultVariant(idx)} />
+                            Default
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <button type="button" onClick={() => removeVariant(idx)} className="h-8 rounded-[var(--radius-md)] border border-danger-600 px-2 text-sm font-semibold text-danger-600">Remove</button>
+                          </div>
+                        </div>
+                        <div className="mt-3">
+                          <VariantImageUploader images={variant.images || []} onChange={(next) => handleVariantChange(idx, 'images', next)} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
                 <label className="md:col-span-2 flex items-center gap-2 text-sm font-medium text-charcoal-900">
                   <input type="checkbox" checked={form.inStock} onChange={(e) => setForm({ ...form, inStock: e.target.checked })} />
                   In stock
