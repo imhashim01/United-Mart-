@@ -9,9 +9,13 @@ export default function VariantImageUploader({ images, onChange }) {
   const [dragging, setDragging] = useState(false);
 
   const normalizedImages = images.map((image, index) => {
+    const stableId = typeof image === "string"
+      ? image
+      : image.id || image.publicId || image.url || image.imageUrl || image.thumbnailUrl || `img-${index}`;
+
     if (typeof image === "string") {
       return {
-        id: `img-${index}-${Date.now()}`,
+        id: stableId,
         imageUrl: image,
         thumbnailUrl: image,
         altText: `Image ${index + 1}`,
@@ -20,7 +24,7 @@ export default function VariantImageUploader({ images, onChange }) {
       };
     }
     return {
-      id: image.id || `img-${index}-${Date.now()}`,
+      id: stableId,
       imageUrl: image.imageUrl || image.url || image.thumbnailUrl || "",
       thumbnailUrl: image.thumbnailUrl || image.imageUrl || image.url || "",
       altText: image.altText || `Image ${index + 1}`,
@@ -142,7 +146,7 @@ export default function VariantImageUploader({ images, onChange }) {
                 <button type="button" onClick={() => moveImage(index, Math.max(0, index - 1))} disabled={index === 0} className="rounded-[var(--radius-sm)] px-2 py-1 bg-white border border-border-strong hover:bg-linen-50 disabled:opacity-50">
                   ↑
                 </button>
-                <button type="button" onClick={() => moveImage(index, Math.min(images.length - 1, index + 1))} disabled={index === images.length - 1} className="rounded-[var(--radius-sm)] px-2 py-1 bg-white border border-border-strong hover:bg-linen-50 disabled:opacity-50">
+                <button type="button" onClick={() => moveImage(index, Math.min(normalizedImages.length - 1, index + 1))} disabled={index === normalizedImages.length - 1} className="rounded-[var(--radius-sm)] px-2 py-1 bg-white border border-border-strong hover:bg-linen-50 disabled:opacity-50">
                   ↓
                 </button>
                 <span className="flex items-center gap-1"><ArrowUpDown size={14} /> {index + 1}/{normalizedImages.length}</span>

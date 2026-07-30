@@ -1,26 +1,43 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import RoleBadge from "../../components/auth/RoleBadge";
-import { adminUsers } from "../../data/adminData";
 import { formatDate } from "../../utils/formatCurrency";
-import { persistAdminUsers } from "../../utils/persistedData";
+import * as usersApi from "../../features/admin/users/api/usersApi";
 
 export default function AdminsPage() {
-  const [staff, setStaff] = useState(adminUsers);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const removeStaff = (id) => {
+  const removeStaff = async (id) => {
     const person = staff.find((s) => s.id === id);
-    setStaff((prev) => {
-      const next = prev.filter((s) => s.id !== id);
-      persistAdminUsers(next);
-      adminUsers.splice(0, adminUsers.length, ...next);
-      return next;
-    });
-    toast.success(`${person.name} removed from staff`);
+    if (!person) return;
+    if (!window.confirm(`Remove ${person.name} from staff?`)) return;
+    try {
+      await usersApi.setActiveStatus(id, false);
+      setStaff((prev) => prev.filter((s) => s.id !== id));
+      toast.success(`${person.name} removed from staff`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to remove staff');
+      console.error('Remove staff failed:', error?.response || error.message);
+    }
   };
+
+  useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const { data } = await usersApi.listUsers({ limit: 100 });
+        setStaff(data.data || []);
+      } catch (error) {
+        console.error('Failed to load admin users:', error?.response || error.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   return (
     <AdminLayout title="Admins">

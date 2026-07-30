@@ -1,40 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ChevronRight, Printer, Download, MapPin, CreditCard, Phone, Mail } from "lucide-react";
-import { updatePersistedOrder } from "../../utils/orderStorage";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import Badge from "../../components/ui/Badge";
 import OrderStatusStepper from "../../features/admin/orders/components/OrderStatusStepper";
 import OrderTimeline from "../../features/admin/orders/components/OrderTimeline";
 import InvoiceDocument from "../../features/admin/orders/components/InvoiceDocument";
-import { getOrderById, ORDER_STATUSES, STATUS_BADGE_VARIANT } from "../../data/adminData";
+import { ORDER_STATUSES, STATUS_BADGE_VARIANT } from "../../data/adminData";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 import { downloadInvoicePdf } from "../../utils/invoicePdf";
 import { fadeUp } from "../../animations/variants";
 
 export default function OrderDetailsPage() {
   const { id } = useParams();
-  const seedOrder = getOrderById(id);
-  const [order, setOrder] = useState(seedOrder);
+  const [order, setOrder] = useState(null);
 
-  if (!seedOrder) return <Navigate to="/admin/orders" replace />;
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await ordersApi.getOrder(id);
+        setOrder(data.data);
+      } catch (error) {
+        console.error('Failed to fetch order:', error?.response || error.message);
+      }
+    })();
+  }, [id]);
 
-  const handleStatusChange = (newStatus) => {
-    setOrder((prev) => {
-      const next = {
+  if (!order) return <Navigate to="/admin/orders" replace />;
+
+  const handleStatusChange = async (newStatus) => {
+    try {
+      await ordersApi.updateOrderStatus(order.id, { status: newStatus });
+      setOrder((prev) => ({
         ...prev,
         status: newStatus,
         timeline: [
           ...prev.timeline,
           { status: newStatus, timestamp: new Date().toISOString(), note: `Status updated to ${newStatus} by admin` },
         ],
-      };
-      updatePersistedOrder(order.id, next, next);
-      return next;
-    });
-    toast.success(`Order ${order.id} marked as ${newStatus}`);
+      }));
+      toast.success(`Order ${order.id} marked as ${newStatus}`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update order status');
+      console.error('Update order status failed:', error?.response || error.message);
+    }
   };
 
   const handlePrint = () => {

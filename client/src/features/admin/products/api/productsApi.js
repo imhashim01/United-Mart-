@@ -16,6 +16,7 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+export const listProducts = (params) => api.get('/products', { params });
 export const createProduct = (payload) => api.post('/products', payload);
 export const updateProduct = (id, payload) => api.patch(`/products/${id}`, payload);
 export const deleteProduct = (id) => api.delete(`/products/${id}`);

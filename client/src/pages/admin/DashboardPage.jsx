@@ -6,11 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { DollarSign, ShoppingBag, Users, TrendingUp } from "lucide-react";
 import AdminLayout from "../../layouts/AdminLayout";
 import StatCard from "../../components/admin/StatCard";
-import {
-  getPersistedOrders,
-  subscribeOrderStorageUpdates,
-} from "../../utils/orderStorage";
 import { ORDER_STATUSES } from "../../data/adminData";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
 import { formatPrice } from "../../utils/formatCurrency";
 
 const CATEGORY_COLORS = ["#173A2E", "#E8A33D", "#2A6FA8", "#2F8556", "#C97A1E", "#5A5F5B"];
@@ -34,12 +31,17 @@ function ChartCard({ title, subtitle, children }) {
 }
 
 export default function DashboardPage() {
-  const [orders, setOrders] = useState(() => getPersistedOrders());
+  const [orders, setOrders] = useState([]);
 
   useEffect(() => {
-    const handleUpdates = () => setOrders(getPersistedOrders());
-    const unsubscribe = subscribeOrderStorageUpdates(handleUpdates);
-    return unsubscribe;
+    (async () => {
+      try {
+        const { data } = await ordersApi.listOrders({ limit: 200 });
+        setOrders(data.data || []);
+      } catch (error) {
+        console.error('Failed to fetch dashboard orders:', error?.response || error.message);
+      }
+    })();
   }, []);
 
   const totals = useMemo(() => {
@@ -68,9 +70,7 @@ export default function DashboardPage() {
       return acc;
     }, {});
 
-    return Object.values(ordersByDay).sort(
-      (a, b) => new Date(a.date) - new Date(b.date)
-    );
+    return Object.values(ordersByDay).sort((a, b) => new Date(a.date) - new Date(b.date));
   }, [orders]);
 
   const salesByCategory = useMemo(() => {
@@ -106,9 +106,7 @@ export default function DashboardPage() {
       return acc;
     }, {});
 
-    return Object.values(productMap)
-      .sort((a, b) => b.sold - a.sold)
-      .slice(0, 5);
+    return Object.values(productMap).sort((a, b) => b.sold - a.sold).slice(0, 5);
   }, [orders]);
 
   const statusChartData = useMemo(() => {
@@ -130,18 +128,8 @@ export default function DashboardPage() {
           changePct={0}
           icon={DollarSign}
         />
-        <StatCard
-          label="Total Orders"
-          value={totals.totalOrders}
-          changePct={0}
-          icon={ShoppingBag}
-        />
-        <StatCard
-          label="Total Customers"
-          value={totals.totalCustomers}
-          changePct={0}
-          icon={Users}
-        />
+        <StatCard label="Total Orders" value={totals.totalOrders} changePct={0} icon={ShoppingBag} />
+        <StatCard label="Total Customers" value={totals.totalCustomers} changePct={0} icon={Users} />
         <StatCard
           label="Avg. Order Value"
           value={formatPrice(totals.avgOrderValue).replace("Rs ", "")}
@@ -193,11 +181,7 @@ export default function DashboardPage() {
                 ))}
               </Pie>
               <Tooltip formatter={(value) => formatPrice(value)} contentStyle={{ borderRadius: 8, border: "1px solid #E4E1D8", fontSize: 12 }} />
-              <Legend
-                verticalAlign="bottom"
-                iconType="circle"
-                wrapperStyle={{ fontSize: 11, lineHeight: "18px" }}
-              />
+              <Legend verticalAlign="bottom" iconType="circle" wrapperStyle={{ fontSize: 11, lineHeight: "18px" }} />
             </PieChart>
           </ResponsiveContainer>
         </ChartCard>
@@ -224,9 +208,7 @@ export default function DashboardPage() {
                 </div>
               ))
             ) : (
-              <div className="py-10 text-center text-sm text-charcoal-600">
-                No sales data available yet.
-              </div>
+              <div className="py-10 text-center text-sm text-charcoal-600">No sales data available yet.</div>
             )}
           </div>
         </div>

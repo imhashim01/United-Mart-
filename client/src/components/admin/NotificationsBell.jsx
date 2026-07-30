@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Bell, Package, CheckCircle2, XCircle, Truck } from "lucide-react";
 import { Link } from "react-router-dom";
 import clsx from "clsx";
-import { getAdminOrders } from "../../data/adminData";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
 
 const ICONS = {
   Pending: Bell,
@@ -15,13 +15,13 @@ const ICONS = {
 };
 
 // Build a small feed from the most recently updated orders' latest timeline entry
-function buildNotifications() {
-  return getAdminOrders()
+function buildNotifications(orders) {
+  return orders
     .map((o) => ({
       id: o.id,
       status: o.status,
-      customer: o.customer.name,
-      timestamp: o.timeline[o.timeline.length - 1]?.timestamp ?? o.createdAt,
+      customer: o.customer?.name || "Customer",
+      timestamp: o.timeline?.[o.timeline.length - 1]?.timestamp ?? o.createdAt,
     }))
     .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
     .slice(0, 8);
@@ -38,7 +38,7 @@ function timeAgo(iso) {
 
 export default function NotificationsBell() {
   const [open, setOpen] = useState(false);
-  const [notifications] = useState(buildNotifications);
+  const [notifications, setNotifications] = useState([]);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -47,6 +47,17 @@ export default function NotificationsBell() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await ordersApi.listOrders({ limit: 20, sort: "-updatedAt" });
+        setNotifications(buildNotifications(data.data || []));
+      } catch (error) {
+        console.error("Failed to load admin notifications:", error?.response || error.message);
+      }
+    })();
   }, []);
 
   return (

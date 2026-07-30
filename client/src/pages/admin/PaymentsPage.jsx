@@ -1,21 +1,36 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { payments } from "../../data/adminData";
+import * as paymentsApi from "../../features/admin/payments/api/paymentsApi";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 
-const STATUS_VARIANT = { Paid: "success", Pending: "warning", Refunded: "danger" };
+const STATUS_VARIANT = { paid: "success", pending: "warning", refunded: "danger", completed: "success", failed: "danger" };
 
 export default function PaymentsPage() {
   const [methodFilter, setMethodFilter] = useState("All");
+  const [payments, setPayments] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await paymentsApi.listPayments({ limit: 200 });
+        setPayments(data.data || []);
+      } catch (error) {
+        console.error("Failed to load payments:", error?.response || error.message);
+      }
+    })();
+  }, []);
+
+  const methods = useMemo(() => {
+    const unique = new Set(payments.map((p) => p.method || "Unknown"));
+    return ["All", ...Array.from(unique)];
+  }, [payments]);
 
   const filtered = useMemo(() => {
     if (methodFilter === "All") return payments;
     return payments.filter((p) => p.method === methodFilter);
-  }, [methodFilter]);
-
-  const methods = ["All", "Cash on Delivery", "JazzCash", "EasyPaisa", "Bank Transfer"];
+  }, [methodFilter, payments]);
 
   return (
     <AdminLayout title="Payments">

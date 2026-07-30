@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Pencil, Trash2, Plus, Ticket, X } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { adminCoupons } from "../../data/adminData";
 import { formatDate } from "../../utils/formatCurrency";
-import { persistCoupons } from "../../utils/persistedData";
+import * as couponsApi from "../../features/admin/coupons/api/couponsApi";
 
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState(adminCoupons);
+  const [coupons, setCoupons] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedCoupon, setSelectedCoupon] = useState(null);
@@ -28,13 +28,15 @@ export default function CouponsPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = (coupon) => {
-    if (window.confirm(`Delete coupon ${coupon.code}?`)) {
-      setCoupons((prev) => {
-        const next = prev.filter((item) => item.id !== coupon.id);
-        persistCoupons(next);
-        return next;
-      });
+  const handleDelete = async (coupon) => {
+    if (!window.confirm(`Delete coupon ${coupon.code}?`)) return;
+    try {
+      await couponsApi.deleteCoupon(coupon.id);
+      setCoupons((prev) => prev.filter((item) => item.id !== coupon.id));
+      toast.success(`${coupon.code} deleted`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete coupon");
+      console.error("Delete coupon failed:", error?.response || error.message);
     }
   };
 
@@ -52,15 +54,39 @@ export default function CouponsPage() {
       usedCount: selectedCoupon?.usedCount ?? 0,
     };
 
-    setCoupons((prev) => {
-      const next = selectedCoupon
-        ? prev.map((item) => (item.id === selectedCoupon.id ? payload : item))
-        : [payload, ...prev];
-      persistCoupons(next);
-      return next;
-    });
-    setModalOpen(false);
+    try {
+      let saved;
+      if (selectedCoupon) {
+        const { data } = await couponsApi.updateCoupon(selectedCoupon.id, payload);
+        saved = data.data;
+        setCoupons((prev) => prev.map((c) => (c.id === selectedCoupon.id ? saved : c)));
+        toast.success(`${payload.code} updated`);
+      } else {
+        const { data } = await couponsApi.createCoupon(payload);
+        saved = data.data;
+        setCoupons((prev) => [saved, ...prev]);
+        toast.success(`${payload.code} created`);
+      }
+      setModalOpen(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to save coupon");
+      console.error("Save coupon failed:", error?.response || error.message);
+    }
   };
+
+  // Load coupons on mount
+  useState(() => {
+    (async () => {
+      try {
+        const { data } = await couponsApi.listCoupons({ limit: 100 });
+        setCoupons(data.data || []);
+      } catch (error) {
+        console.error("Failed to load coupons:", error?.response || error.message);
+        // fallback: keep empty list
+      }
+    })();
+    return undefined;
+  });
 
   return (
     <AdminLayout title="Coupons">

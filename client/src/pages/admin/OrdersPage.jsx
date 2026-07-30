@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Search, Eye, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
@@ -6,14 +6,25 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import Pagination from "../../features/search/components/Pagination";
-import { getAdminOrders, ORDER_STATUSES, STATUS_BADGE_VARIANT } from "../../data/adminData";
-import { updatePersistedOrder } from "../../utils/orderStorage";
+import { ORDER_STATUSES, STATUS_BADGE_VARIANT } from "../../data/adminData";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 
 const PAGE_SIZE = 10;
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState(() => getAdminOrders());
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await ordersApi.listOrders({ limit: 200 });
+        setOrders(data.data || []);
+      } catch (error) {
+        console.error('Failed to load orders:', error?.response || error.message);
+      }
+    })();
+  }, []);
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
@@ -33,23 +44,27 @@ export default function OrdersPage() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const updateStatus = (orderId, newStatus) => {
-    setOrders((prev) =>
-      prev.map((o) => {
-        if (o.id !== orderId) return o;
-        const updatedOrder = {
-          ...o,
-          status: newStatus,
-          timeline: [
-            ...o.timeline,
-            { status: newStatus, timestamp: new Date().toISOString(), note: `Status updated to ${newStatus} by admin` },
-          ],
-        };
-        updatePersistedOrder(orderId, updatedOrder, updatedOrder);
-        return updatedOrder;
-      })
-    );
-    toast.success(`Order ${orderId} marked as ${newStatus}`);
+  const updateStatus = async (orderId, newStatus) => {
+    try {
+      await ordersApi.updateOrderStatus(orderId, { status: newStatus });
+      setOrders((prev) =>
+        prev.map((o) => {
+          if (o.id !== orderId) return o;
+          return {
+            ...o,
+            status: newStatus,
+            timeline: [
+              ...o.timeline,
+              { status: newStatus, timestamp: new Date().toISOString(), note: `Status updated to ${newStatus} by admin` },
+            ],
+          };
+        })
+      );
+      toast.success(`Order ${orderId} marked as ${newStatus}`);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Failed to update order status');
+      console.error('Update order status failed:', error?.response || error.message);
+    }
   };
 
   return (

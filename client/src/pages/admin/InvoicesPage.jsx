@@ -1,17 +1,29 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search, Download, Eye, Receipt } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { getAdminOrders, STATUS_BADGE_VARIANT } from "../../data/adminData";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
+import { STATUS_BADGE_VARIANT } from "../../data/adminData";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 import { downloadInvoicePdf } from "../../utils/invoicePdf";
 
 export default function InvoicesPage() {
   const [query, setQuery] = useState("");
-  const orders = useMemo(() => getAdminOrders(), []);
+  const [orders, setOrders] = useState([]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await ordersApi.listOrders({ limit: 200 });
+        setOrders(data.data || []);
+      } catch (error) {
+        console.error("Failed to load invoices:", error?.response || error.message);
+      }
+    })();
+  }, []);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return orders;

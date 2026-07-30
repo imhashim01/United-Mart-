@@ -85,32 +85,79 @@ export const normalizeProduct = (product, fallbackId = null) => {
 // Converts a raw Mongo product document (as returned by GET /products) into
 // the loosely-shaped input normalizeProduct() expects. This is the one
 // place that needs to change if your backend product shape ever changes.
-const mapApiProduct = (apiProduct) => ({
-  id: apiProduct.id ?? apiProduct._id,
-  name: apiProduct.name,
-  slug: apiProduct.slug,
-  description: apiProduct.description ?? "",
-  category: apiProduct.category?.name ?? "Other",
-  categorySlug: apiProduct.category?.slug,
-  brand: apiProduct.brand?.name ?? "Unbranded",
-  price: apiProduct.effectivePrice ?? apiProduct.discountPrice ?? apiProduct.price,
-  originalPrice: apiProduct.discountPrice != null && apiProduct.discountPrice < apiProduct.price ? apiProduct.price : null,
-  discountPrice: apiProduct.discountPrice ?? null,
-  discount:
-    apiProduct.discountPrice != null && apiProduct.discountPrice < apiProduct.price
-      ? Math.round((1 - apiProduct.discountPrice / apiProduct.price) * 100)
-      : 0,
-  unit: apiProduct.unit ?? "pcs",
-  stockCount: apiProduct.stockCount ?? apiProduct.stock ?? 0,
-  inStock: apiProduct.inStock ?? (apiProduct.stock ?? 0) > 0,
-  images: apiProduct.images ?? [],
-  rating: apiProduct.ratings?.average ?? 4.7,
-  reviewCount: apiProduct.ratings?.count ?? 0,
-  isFeatured: Boolean(apiProduct.isFeatured),
-  isBestSeller: Boolean(apiProduct.isBestSeller),
-  isTodaysDeal: Boolean(apiProduct.isTodaysDeal),
-  variants: apiProduct.variants ?? [],
-});
+const normalizeImageEntry = (image, index) => {
+  if (!image) return null;
+  if (typeof image === "string") {
+    return {
+      id: `img-${index}`,
+      imageUrl: image,
+      thumbnailUrl: image,
+      altText: `Image ${index + 1}`,
+      isPrimary: index === 0,
+      sortOrder: index,
+    };
+  }
+
+  return {
+    id: image.id || image.publicId || image.url || image.imageUrl || image.thumbnailUrl || `img-${index}`,
+    imageUrl: image.imageUrl || image.url || image.thumbnailUrl || "",
+    thumbnailUrl: image.thumbnailUrl || image.imageUrl || image.url || "",
+    altText: image.altText || `Image ${index + 1}`,
+    isPrimary: Boolean(image.isPrimary),
+    sortOrder: Number(image.sortOrder ?? index),
+    publicId: image.publicId,
+  };
+};
+
+const mapApiProduct = (apiProduct) => {
+  const images = Array.isArray(apiProduct.images)
+    ? apiProduct.images.map(normalizeImageEntry).filter(Boolean)
+    : [];
+
+  const variants = Array.isArray(apiProduct.variants)
+    ? apiProduct.variants.map((variant, index) => ({
+        id: variant.id ?? variant._id ?? `variant-${index}`,
+        name: variant.name || `Variant ${index + 1}`,
+        sku: variant.sku,
+        price: variant.price ?? 0,
+        discountPrice: variant.discountPrice ?? null,
+        stock: variant.stock ?? variant.stockCount ?? 0,
+        unit: variant.unit ?? "pcs",
+        isDefault: Boolean(variant.isDefault),
+        images: Array.isArray(variant.images)
+          ? variant.images.map(normalizeImageEntry).filter(Boolean)
+          : [],
+      }))
+    : [];
+
+  return {
+    id: apiProduct.id ?? apiProduct._id,
+    sku: apiProduct.sku,
+    name: apiProduct.name,
+    slug: apiProduct.slug,
+    description: apiProduct.description ?? "",
+    category: apiProduct.category?.name ?? "Other",
+    categorySlug: apiProduct.category?.slug,
+    brand: apiProduct.brand?.name ?? "Unbranded",
+    price: apiProduct.effectivePrice ?? apiProduct.discountPrice ?? apiProduct.price,
+    originalPrice: apiProduct.discountPrice != null && apiProduct.discountPrice < apiProduct.price ? apiProduct.price : null,
+    discountPrice: apiProduct.discountPrice ?? null,
+    discount:
+      apiProduct.discountPrice != null && apiProduct.discountPrice < apiProduct.price
+        ? Math.round((1 - apiProduct.discountPrice / apiProduct.price) * 100)
+        : 0,
+    unit: apiProduct.unit ?? "pcs",
+    stockCount: apiProduct.stockCount ?? apiProduct.stock ?? 0,
+    inStock: apiProduct.inStock ?? (apiProduct.stock ?? 0) > 0,
+    images,
+    rating: apiProduct.ratings?.average ?? 4.7,
+    reviewCount: apiProduct.ratings?.count ?? 0,
+    isFeatured: Boolean(apiProduct.isFeatured),
+    isBestSeller: Boolean(apiProduct.isBestSeller),
+    isTodaysDeal: Boolean(apiProduct.isTodaysDeal),
+    variants,
+  };
+};
 
 const mapApiCategory = (apiCategory) => ({
   id: apiCategory.id ?? apiCategory._id,
@@ -203,6 +250,7 @@ export const getRelatedProducts = (product) => {
   return cachedProducts.filter((p) => p.category === product.category && p.id !== product.id).slice(0, 4);
 };
 
+export { mapApiProduct };
 // Function, not a static object — computed fresh from whatever is currently
 // cached, with a sane fallback range before the first fetch resolves.
 export const getPriceRange = () => {

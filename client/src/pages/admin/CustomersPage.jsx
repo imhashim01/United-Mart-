@@ -1,15 +1,57 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search, Ban, CheckCircle } from "lucide-react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { getAdminCustomers } from "../../data/adminData";
+import * as ordersApi from "../../features/admin/orders/api/ordersApi";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState(() => getAdminCustomers());
+  const [orders, setOrders] = useState([]);
   const [query, setQuery] = useState("");
+  const [blockedCustomers, setBlockedCustomers] = useState({});
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await ordersApi.listOrders({ limit: 200 });
+        setOrders(data.data || []);
+      } catch (error) {
+        console.error("Failed to load customers from orders:", error?.response || error.message);
+      }
+    })();
+  }, []);
+
+  const customers = useMemo(() => {
+    const customersMap = new Map();
+
+    orders.forEach((order) => {
+      const email = order.customer?.email?.toLowerCase();
+      if (!email) return;
+
+      const existing = customersMap.get(email);
+      if (existing) {
+        existing.ordersCount += 1;
+        existing.totalSpent += order.total || 0;
+        existing.joinedAt = existing.joinedAt < order.createdAt ? existing.joinedAt : order.createdAt;
+      } else {
+        customersMap.set(email, {
+          id: order.customer?.id || `cust-${customersMap.size + 1}`,
+          name: order.customer?.name || "Unknown",
+          email: order.customer?.email,
+          phone: order.customer?.phone || "",
+          avatar: order.customer?.avatar || "",
+          ordersCount: 1,
+          totalSpent: order.total || 0,
+          joinedAt: order.createdAt || "",
+          status: "Active",
+        });
+      }
+    });
+
+    return Array.from(customersMap.values());
+  }, [orders]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return customers;
@@ -18,11 +60,18 @@ export default function CustomersPage() {
   }, [customers, query]);
 
   const toggleBlock = (id) => {
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, status: c.status === "Active" ? "Blocked" : "Active" } : c))
-    );
     const customer = customers.find((c) => c.id === id);
-    toast.success(`${customer.name} ${customer.status === "Active" ? "blocked" : "unblocked"}`);
+    if (!customer) return;
+
+    setBlockedCustomers((prev) => {
+      const emailKey = customer.email.toLowerCase();
+      const isBlocked = !prev[emailKey];
+      toast.success(`${customer.name} ${isBlocked ? "blocked" : "unblocked"}`);
+      return {
+        ...prev,
+        [emailKey]: isBlocked,
+      };
+    });
   };
 
   return (
@@ -65,14 +114,14 @@ export default function CustomersPage() {
                 <td className="px-4 py-3 tabular-nums text-charcoal-600">{c.ordersCount}</td>
                 <td className="px-4 py-3 font-medium text-charcoal-900 tabular-nums">{formatPrice(c.totalSpent)}</td>
                 <td className="px-4 py-3 text-charcoal-600">{formatDate(c.joinedAt)}</td>
-                <td className="px-4 py-3"><Badge variant={c.status === "Active" ? "success" : "danger"}>{c.status}</Badge></td>
+                <td className="px-4 py-3"><Badge variant={(blockedCustomers[c.email.toLowerCase()] ? "danger" : "success")}>{blockedCustomers[c.email.toLowerCase()] ? "Blocked" : "Active"}</Badge></td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => toggleBlock(c.id)}
                     className="inline-flex items-center gap-1.5 text-xs font-semibold text-charcoal-600 hover:text-orchard-900 transition-colors"
                   >
-                    {c.status === "Active" ? <Ban size={14} /> : <CheckCircle size={14} />}
-                    {c.status === "Active" ? "Block" : "Unblock"}
+                    {blockedCustomers[c.email.toLowerCase()] ? <CheckCircle size={14} /> : <Ban size={14} />}
+                    {blockedCustomers[c.email.toLowerCase()] ? "Unblock" : "Block"}
                   </button>
                 </td>
               </tr>

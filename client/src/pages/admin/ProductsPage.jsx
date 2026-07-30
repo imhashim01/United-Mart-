@@ -5,14 +5,14 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import VariantImageUploader from "../../components/admin/VariantImageUploader";
-import { getProducts, getCategoryObjects, loadCategories, loadBrands, refreshProducts, getBrandObjects, slugify } from "../../data/productsData";
+import { loadCategories, loadBrands, mapApiProduct, slugify } from "../../data/productsData";
 import * as productsApi from "../../features/admin/products/api/productsApi";
 import { formatPrice } from "../../utils/formatCurrency";
 
 export default function ProductsPage() {
-  const [products, setProducts] = useState(getProducts());
-  const [categoryObjects, setCategoryObjects] = useState(getCategoryObjects());
-  const [brandObjects, setBrandObjects] = useState(getBrandObjects());
+  const [products, setProducts] = useState([]);
+  const [categoryObjects, setCategoryObjects] = useState([]);
+  const [brandObjects, setBrandObjects] = useState([]);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,15 +26,19 @@ export default function ProductsPage() {
   });
 
   useEffect(() => {
-    // Categories may not have been fetched by the time this admin page
-    // mounts directly (e.g. a bookmarked /admin/products link) — refresh
-    // if the cache is empty.
-    if (categoryObjects.length === 0) {
-      loadCategories().then(() => setCategoryObjects(getCategoryObjects()));
-    }
-    if (brandObjects.length === 0) {
-      loadBrands().then(() => setBrandObjects(getBrandObjects()));
-    }
+    const loadCatalog = async () => {
+      try {
+        const categories = await loadCategories();
+        const brands = await loadBrands();
+        setCategoryObjects(categories);
+        setBrandObjects(brands);
+      } catch (error) {
+        console.error("Failed to load categories or brands:", error?.response || error.message);
+      }
+    };
+
+    loadCatalog();
+    syncFromServer();
   }, []);
 
   const categoryNames = categoryObjects.map((c) => c.name);
@@ -62,6 +66,11 @@ export default function ProductsPage() {
     setModalOpen(true);
   };
 
+  const resolveImageUrl = (value) =>
+    typeof value === "string"
+      ? value
+      : value?.imageUrl || value?.url || value?.thumbnailUrl || "";
+
   const openEditModal = (product) => {
     setModalMode("edit");
     setSelectedProduct(product);
@@ -76,7 +85,7 @@ export default function ProductsPage() {
       stockCount: product.stockCount,
       inStock: product.inStock,
       description: product.description || "",
-      imageUrl: product.images?.[0] ?? "",
+      imageUrl: resolveImageUrl(product.images?.[0]),
       isFeatured: product.isFeatured ?? false,
       isBestSeller: product.isBestSeller ?? false,
       isTodaysDeal: product.isTodaysDeal ?? false,
@@ -92,8 +101,13 @@ export default function ProductsPage() {
   };
 
   const syncFromServer = async () => {
-    await refreshProducts();
-    setProducts(getProducts());
+    try {
+      const { data } = await productsApi.listProducts({ limit: 200, fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal' });
+      const apiProducts = data.data || [];
+      setProducts(apiProducts.map((product) => mapApiProduct(product)));
+    } catch (error) {
+      console.error("Failed to sync products from server:", error?.response || error.message);
+    }
   };
 
   const handleDelete = async (product) => {
@@ -154,24 +168,27 @@ export default function ProductsPage() {
         ? [{ url: form.imageUrl.trim(), publicId: `manual-${Date.now()}` }]
         : undefined,
       variants: form.variants.length > 0
-        ? form.variants.map((variant) => ({
-            name: variant.name.trim(),
-            sku: (variant.sku || generatedSku).trim().toUpperCase(),
-            price: Number(variant.price) || 0,
-            discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : undefined,
-            stock: Number(variant.stock) || 0,
-            unit: variant.unit.trim() || "pcs",
-            isDefault: Boolean(variant.isDefault),
-            images: Array.isArray(variant.images) && variant.images.length > 0
-              ? variant.images.map((img, i) => ({
-                  url: img.imageUrl || img.url || img.thumbnailUrl || "",
-                  publicId: img.id || `manual-variant-${Date.now()}-${i}`,
-                  altText: img.altText || "",
-                  sortOrder: Number(img.sortOrder ?? i),
-                  isPrimary: Boolean(img.isPrimary),
-                }))
-              : undefined,
-          }))
+        ? form.variants.map((variant, index) => {
+            const variantSku = String(variant.sku || `${slugify(productName)}-${index + 1}`).trim().toUpperCase();
+            return {
+              name: variant.name.trim() || `Variant ${index + 1}`,
+              sku: variantSku,
+              price: Number(variant.price) || 0,
+              discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : undefined,
+              stock: Number(variant.stock) || 0,
+              unit: variant.unit.trim() || "pcs",
+              isDefault: Boolean(variant.isDefault),
+              images: Array.isArray(variant.images) && variant.images.length > 0
+                ? variant.images.map((img, i) => ({
+                    url: img.imageUrl || img.url || img.thumbnailUrl || "",
+                    publicId: img.publicId || img.id || `manual-variant-${Date.now()}-${i}`,
+                    altText: img.altText || "",
+                    sortOrder: Number(img.sortOrder ?? i),
+                    isPrimary: Boolean(img.isPrimary),
+                  }))
+                : undefined,
+            };
+          })
         : undefined,
     };
 
@@ -241,7 +258,7 @@ export default function ProductsPage() {
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-linen-50 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <img src={p.images[0]} alt="" className="h-10 w-10 rounded-[var(--radius-sm)] object-cover" />
+                    <img src={resolveImageUrl(p.images?.[0])} alt="" className="h-10 w-10 rounded-[var(--radius-sm)] object-cover" />
                     <span className="font-medium text-charcoal-900">{p.name}</span>
                   </div>
                 </td>
