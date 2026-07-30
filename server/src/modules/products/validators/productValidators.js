@@ -15,6 +15,15 @@ export const createProductSchema = Joi.object({
   lowStockThreshold: Joi.number().integer().min(0).default(10),
   attributes: Joi.object().pattern(Joi.string(), Joi.string()),
   tags: Joi.array().items(Joi.string().trim().lowercase()),
+  images: Joi.array().items(
+    Joi.object({
+      url: Joi.string().uri().required(),
+      publicId: Joi.string().trim().required(),
+      altText: Joi.string().trim().allow('', null),
+      sortOrder: Joi.number().integer().min(0).default(0),
+      isPrimary: Joi.boolean().default(false),
+    })
+  ).default([]),
   isFeatured: Joi.boolean().default(false),
   isBestSeller: Joi.boolean().default(false),
   isTodaysDeal: Joi.boolean().default(false),
@@ -61,6 +70,15 @@ export const updateProductSchema = Joi.object({
   lowStockThreshold: Joi.number().integer().min(0),
   attributes: Joi.object().pattern(Joi.string(), Joi.string()),
   tags: Joi.array().items(Joi.string().trim().lowercase()),
+  images: Joi.array().items(
+    Joi.object({
+      url: Joi.string().uri().required(),
+      publicId: Joi.string().trim().required(),
+      altText: Joi.string().trim().allow('', null),
+      sortOrder: Joi.number().integer().min(0).default(0),
+      isPrimary: Joi.boolean().default(false),
+    })
+  ).default([]),
   isFeatured: Joi.boolean(),
   isBestSeller: Joi.boolean(),
   isTodaysDeal: Joi.boolean(),
