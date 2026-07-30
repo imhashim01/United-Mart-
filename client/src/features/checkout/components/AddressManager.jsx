@@ -19,7 +19,7 @@ const seedAddresses = [
   },
 ];
 
-export default function AddressManager({ selectedId, onSelect }) {
+export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
   const [addresses, setAddresses] = useState(seedAddresses);
   const [showForm, setShowForm] = useState(false);
 
@@ -32,7 +32,10 @@ export default function AddressManager({ selectedId, onSelect }) {
 
   // Auto-select default/first address on mount
   useEffect(() => {
-    if (!selectedId && addresses.length > 0) onSelect(addresses[0].id);
+    if (!selectedId && addresses.length > 0) {
+      onSelect(addresses[0].id);
+      onAddressChange?.(addresses[0]);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -49,6 +52,7 @@ export default function AddressManager({ selectedId, onSelect }) {
     };
     setAddresses((prev) => [...prev, newAddress]);
     onSelect(newAddress.id);
+    onAddressChange?.(newAddress);
     reset();
     setShowForm(false);
   };
@@ -80,7 +84,10 @@ export default function AddressManager({ selectedId, onSelect }) {
             <button
               key={addr.id}
               type="button"
-              onClick={() => onSelect(addr.id)}
+              onClick={() => {
+                onSelect(addr.id);
+                onAddressChange?.(addr);
+              }}
               className={clsx(
                 "text-left p-3.5 rounded-[var(--radius-sm)] border-2 transition-colors flex items-start gap-3",
                 selected ? "border-orchard-900 bg-linen-50" : "border-border hover:border-border-strong"

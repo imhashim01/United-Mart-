@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Navigate, Link } from "react-router-dom";
 import { FormProvider, useForm } from "react-hook-form";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import { CheckCircle2, ChevronRight, ShoppingBasket } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
@@ -14,7 +15,7 @@ import PaymentMethodSelector from "../features/checkout/components/PaymentMethod
 import DeliveryEstimate from "../features/checkout/components/DeliveryEstimate";
 import { useCartStore } from "../store/cartStore";
 import { useAuthStore } from "../features/auth/hooks/useAuth";
-import { persistOrder } from "../utils/orderStorage";
+import * as ordersApi from "../features/admin/orders/api/ordersApi";
 import { formatPrice } from "../utils/formatCurrency";
 
 export default function CheckoutPage() {
@@ -23,13 +24,16 @@ export default function CheckoutPage() {
   const deliveryCharge = useCartStore((s) => s.deliveryCharge());
   const total = useCartStore((s) => s.total());
   const clearCart = useCartStore((s) => s.clearCart);
+  const couponCode = useCartStore((s) => s.couponCode);
   const user = useAuthStore((s) => s.user);
 
   const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [orderId, setOrderId] = useState(null);
   const [orderNotes, setOrderNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   const methods = useForm({ mode: "onBlur" });
   const { handleSubmit, setError, clearErrors } = methods;
@@ -38,8 +42,8 @@ export default function CheckoutPage() {
     return <Navigate to="/shop" replace />;
   }
 
-  const onSubmit = () => {
-    if (!selectedAddressId) {
+  const onSubmit = async () => {
+    if (!selectedAddressId || !selectedAddress) {
       setError("address", {
         type: "manual",
         message: "Please select or add a delivery address to complete checkout.",
@@ -48,51 +52,49 @@ export default function CheckoutPage() {
     }
 
     clearErrors("address");
+    setSubmitting(true);
 
-    // Replace with real POST /api/v1/orders call
-    const newOrderId = `UMS-${Math.floor(100000 + Math.random() * 900000)}`;
-    const persistedOrder = {
-      id: newOrderId,
-      orderNumber: newOrderId,
-      createdAt: new Date().toISOString(),
-      status: "Pending",
-      items: items.map((item) => ({
-        ...item,
-        subtotal: item.price * item.qty,
-        category: item.category ?? "Other",
-      })),
-      subtotal,
-      delivery: deliveryCharge,
-      discount: 0,
-      total,
-      paymentMethod,
-      customer: {
-        name: user?.name || user?.email || "Customer",
-        email: user?.email || "",
-        phone: user?.phone || "N/A",
-        avatar: user?.avatar?.url || `https://ui-avatars.com/api/?name=${encodeURIComponent(
-          user?.name || user?.email || "Customer"
-        )}&background=F7F0EB&color=23442C`,
-      },
-      address: {
-        line1: "Saved delivery address",
-        area: "Sukkur",
-        city: "Sukkur",
-      },
-      notes: orderNotes,
-      timeline: [
-        {
-          status: "Pending",
-          timestamp: new Date().toISOString(),
-          note: "Order placed successfully",
+    try {
+      const payload = {
+        shippingAddress: {
+          label: selectedAddress.label || "home",
+          line1: selectedAddress.line1 || "",
+          line2: selectedAddress.line2 || "",
+          city: selectedAddress.city || "Sukkur",
+          state: selectedAddress.area || "",
+          postalCode: selectedAddress.postalCode || "",
+          country: selectedAddress.country || "Pakistan",
+          phone: selectedAddress.phone || user?.phone || "",
         },
-      ],
-    };
+        billingAddress: {
+          label: selectedAddress.label || "home",
+          line1: selectedAddress.line1 || "",
+          line2: selectedAddress.line2 || "",
+          city: selectedAddress.city || "Sukkur",
+          state: selectedAddress.area || "",
+          postalCode: selectedAddress.postalCode || "",
+          country: selectedAddress.country || "Pakistan",
+          phone: selectedAddress.phone || user?.phone || "",
+        },
+        paymentMethod,
+        ...(couponCode ? { couponCode } : {}),
+        ...(orderNotes ? { customerNote: orderNotes } : {}),
+      };
 
-    persistOrder(persistedOrder);
-    setOrderId(newOrderId);
-    setOrderPlaced(true);
-    clearCart();
+      const { data } = await ordersApi.createOrder(payload);
+      const createdOrder = data.data;
+      const newOrderId = createdOrder?.id || createdOrder?.orderNumber || createdOrder?._id || `UMS-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      setOrderId(newOrderId);
+      setOrderPlaced(true);
+      clearCart();
+      toast.success("Order placed successfully");
+    } catch (error) {
+      console.error("Failed to place order:", error?.response || error.message);
+      toast.error(error?.response?.data?.message || "Failed to place order. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (orderPlaced) {
@@ -155,7 +157,7 @@ export default function CheckoutPage() {
           <form onSubmit={handleSubmit(onSubmit)} className="grid lg:grid-cols-[1fr_380px] gap-8">
             {/* Left: address + payment */}
             <div className="flex flex-col gap-5">
-              <AddressManager selectedId={selectedAddressId} onSelect={setSelectedAddressId} />
+              <AddressManager selectedId={selectedAddressId} onSelect={setSelectedAddressId} onAddressChange={setSelectedAddress} />
               <PaymentMethodSelector selected={paymentMethod} onSelect={setPaymentMethod} />
               <div className="border border-border rounded-[var(--radius-md)] p-4 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-3">
@@ -192,9 +194,10 @@ export default function CheckoutPage() {
 
               <button
                 type="submit"
-                className="w-full h-12 rounded-[var(--radius-md)] bg-orchard-900 text-white font-semibold hover:bg-orchard-700 transition-colors"
+                disabled={submitting}
+                className="w-full h-12 rounded-[var(--radius-md)] bg-orchard-900 text-white font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
               >
-                Place Order — {formatPrice(total)}
+                {submitting ? "Placing Order..." : `Place Order — ${formatPrice(total)}`}
               </button>
               <p className="text-xs text-charcoal-600 text-center">
                 By placing this order you agree to our{" "}
