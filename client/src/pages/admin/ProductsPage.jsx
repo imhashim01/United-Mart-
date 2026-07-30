@@ -5,13 +5,14 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import VariantImageUploader from "../../components/admin/VariantImageUploader";
-import { getProducts, getCategoryObjects, loadCategories, refreshProducts, slugify } from "../../data/productsData";
+import { getProducts, getCategoryObjects, loadCategories, loadBrands, refreshProducts, getBrandObjects, slugify } from "../../data/productsData";
 import * as productsApi from "../../features/admin/products/api/productsApi";
 import { formatPrice } from "../../utils/formatCurrency";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState(getProducts());
   const [categoryObjects, setCategoryObjects] = useState(getCategoryObjects());
+  const [brandObjects, setBrandObjects] = useState(getBrandObjects());
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All");
   const [modalOpen, setModalOpen] = useState(false);
@@ -31,6 +32,9 @@ export default function ProductsPage() {
     if (categoryObjects.length === 0) {
       loadCategories().then(() => setCategoryObjects(getCategoryObjects()));
     }
+    if (brandObjects.length === 0) {
+      loadBrands().then(() => setBrandObjects(getBrandObjects()));
+    }
   }, []);
 
   const categoryNames = categoryObjects.map((c) => c.name);
@@ -46,7 +50,7 @@ export default function ProductsPage() {
   }, [products, query, category]);
 
   const resetForm = () => ({
-    name: "", brand: "", categoryId: categoryObjects[0]?.id ?? "", price: "", unit: "",
+    name: "", brand: brandObjects[0]?.id ?? "", categoryId: categoryObjects[0]?.id ?? "", price: "", unit: "",
     stockCount: "", inStock: true, description: "", imageUrl: "", variants: [],
     isFeatured: false, isBestSeller: false, isTodaysDeal: false,
   });
@@ -62,9 +66,10 @@ export default function ProductsPage() {
     setModalMode("edit");
     setSelectedProduct(product);
     const matchingCategory = categoryObjects.find((c) => c.name === product.category);
+    const matchingBrand = brandObjects.find((b) => b.name === product.brand);
     setForm({
       name: product.name,
-      brand: product.brand,
+      brand: matchingBrand?.id ?? "",
       categoryId: matchingCategory?.id ?? categoryObjects[0]?.id ?? "",
       price: product.price,
       unit: product.unit,
@@ -123,7 +128,7 @@ export default function ProductsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.name.trim() || !form.brand.trim() || !form.categoryId) {
+    if (!form.name.trim() || !form.brand || !form.categoryId) {
       toast.error("Name, brand, and category are required");
       return;
     }
@@ -137,7 +142,7 @@ export default function ProductsPage() {
       name: productName,
       sku: selectedProduct?.sku || generatedSku,
       category: form.categoryId, // ObjectId, not the category name
-      brand: form.brand.trim(),
+      brand: form.brand,
       price: Number(form.price) || 0,
       unit: form.unit.trim() || "1 unit",
       stock: Number(form.stockCount) || 0,
@@ -272,7 +277,12 @@ export default function ProductsPage() {
                 </label>
                 <label className="text-sm font-medium text-charcoal-900">
                   <span className="mb-1.5 block">Brand</span>
-                  <input required value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
+                  <select required value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 bg-white">
+                    <option value="" disabled>Select a brand</option>
+                    {brandObjects.map((b) => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
                 </label>
                 <label className="text-sm font-medium text-charcoal-900">
                   <span className="mb-1.5 block">Category</span>
