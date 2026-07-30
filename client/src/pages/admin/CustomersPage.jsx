@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Search, Ban, CheckCircle } from "lucide-react";
-import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
@@ -18,11 +17,12 @@ export default function CustomersPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await ordersApi.listOrders({ limit: 200 });
+        const { data } = await ordersApi.listOrders({ limit: 100 });
         setOrders(data.data || []);
+        setLoadError(null);
       } catch (error) {
         const message = error?.response?.data?.message || error.message || "Unknown error";
-        console.error("Failed to fetch dashboard orders:", error?.response?.data || error);
+        console.error("Failed to fetch orders:", error?.response?.data || error);
         setLoadError(message);
         toast.error(`Couldn't load orders: ${message}`);
       }

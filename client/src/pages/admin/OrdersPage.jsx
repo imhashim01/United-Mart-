@@ -1,5 +1,4 @@
 import { useState, useMemo, useEffect } from "react";
-import toast from "react-hot-toast";
 import { Link } from "react-router-dom";
 import { Search, Eye, ChevronDown } from "lucide-react";
 import toast from "react-hot-toast";
@@ -20,16 +19,18 @@ export default function OrdersPage() {
   useEffect(() => {
     (async () => {
       try {
-        const { data } = await ordersApi.listOrders({ limit: 200 });
+        const { data } = await ordersApi.listOrders({ limit: 100 });
         setOrders(data.data || []);
+        setLoadError(null);
       } catch (error) {
         const message = error?.response?.data?.message || error.message || "Unknown error";
-        console.error("Failed to fetch dashboard orders:", error?.response?.data || error);
+        console.error("Failed to fetch orders:", error?.response?.data || error);
         setLoadError(message);
         toast.error(`Couldn't load orders: ${message}`);
       }
     })();
   }, []);
+
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(1);
