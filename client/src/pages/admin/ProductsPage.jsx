@@ -178,10 +178,15 @@ export default function ProductsPage() {
       await syncFromServer();
       setModalOpen(false);
     } catch (error) {
-      const message = error?.response?.data?.message || "Failed to save product on the server";
-      const details = error?.response?.data?.errors;
-      toast.error(details?.length ? `${message}: ${details[0]?.message ?? ""}` : message);
-      console.error("Save failed:", error?.response?.data || error.message);
+      const resp = error?.response?.data;
+      console.error("Save failed:", error?.response || error.message);
+      if (resp) {
+        // Show full server message or fallback to JSON for debugging
+        toast.error(resp.message || JSON.stringify(resp));
+        console.error("Server response body:", resp);
+      } else {
+        toast.error("Failed to save product on the server");
+      }
       // Deliberately NOT closing the modal or updating local state here —
       // if the server rejected it, the admin should see the error and fix
       // the form rather than have the UI silently pretend it worked.
