@@ -7,6 +7,21 @@ import Badge from "../../components/ui/Badge";
 import { formatDate } from "../../utils/formatCurrency";
 import * as couponsApi from "../../features/admin/coupons/api/couponsApi";
 
+const normalizeCoupon = (coupon) => ({
+  id: coupon.id ?? coupon._id,
+  code: coupon.code,
+  type: coupon.discountType === "fixed" ? "flat" : "percent",
+  value: coupon.discountValue ?? 0,
+  minSpend: coupon.minPurchaseAmount ?? 0,
+  maxUses: coupon.usageLimit ?? 0,
+  expiresAt: coupon.validUntil ? new Date(coupon.validUntil).toISOString().split("T")[0] : "",
+  status: coupon.isActive === false ? "Expired" : "Active",
+  usedCount: coupon.usedCount ?? 0,
+  validFrom: coupon.validFrom,
+  validUntil: coupon.validUntil,
+  isActive: coupon.isActive,
+});
+
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
@@ -22,9 +37,10 @@ export default function CouponsPage() {
   };
 
   const openEditModal = (coupon) => {
+    const normalizedCoupon = normalizeCoupon(coupon);
     setModalMode("edit");
-    setSelectedCoupon(coupon);
-    setForm({ code: coupon.code, type: coupon.type, value: coupon.value, minSpend: coupon.minSpend, maxUses: coupon.maxUses, expiresAt: coupon.expiresAt, status: coupon.status });
+    setSelectedCoupon(normalizedCoupon);
+    setForm({ code: normalizedCoupon.code, type: normalizedCoupon.type, value: normalizedCoupon.value, minSpend: normalizedCoupon.minSpend, maxUses: normalizedCoupon.maxUses, expiresAt: normalizedCoupon.expiresAt, status: normalizedCoupon.status });
     setModalOpen(true);
   };
 
@@ -42,28 +58,40 @@ export default function CouponsPage() {
 
   const handleSave = async (e) => {
     e.preventDefault();
+
+    if (!form.code.trim()) {
+      toast.error("Coupon code is required");
+      return;
+    }
+
+    if (!form.expiresAt) {
+      toast.error("Expiry date is required");
+      return;
+    }
+
     const payload = {
-      id: selectedCoupon?.id ?? `coupon-${Date.now()}`,
       code: form.code.trim().toUpperCase(),
-      type: form.type,
-      value: Number(form.value) || 0,
-      minSpend: Number(form.minSpend) || 0,
-      maxUses: Number(form.maxUses) || 0,
-      expiresAt: form.expiresAt,
-      status: form.status,
-      usedCount: selectedCoupon?.usedCount ?? 0,
+      description: "",
+      discountType: form.type === "flat" ? "fixed" : "percentage",
+      discountValue: Number(form.value) || 0,
+      minPurchaseAmount: Number(form.minSpend) || 0,
+      usageLimit: Number(form.maxUses) || null,
+      usageLimitPerUser: 1,
+      validFrom: selectedCoupon?.validFrom ? new Date(selectedCoupon.validFrom).toISOString() : new Date().toISOString(),
+      validUntil: new Date(`${form.expiresAt}T23:59:59`).toISOString(),
+      isActive: form.status === "Active",
     };
 
     try {
       let saved;
       if (selectedCoupon) {
         const { data } = await couponsApi.updateCoupon(selectedCoupon.id, payload);
-        saved = data.data;
+        saved = normalizeCoupon(data.data);
         setCoupons((prev) => prev.map((c) => (c.id === selectedCoupon.id ? saved : c)));
         toast.success(`${payload.code} updated`);
       } else {
         const { data } = await couponsApi.createCoupon(payload);
-        saved = data.data;
+        saved = normalizeCoupon(data.data);
         setCoupons((prev) => [saved, ...prev]);
         toast.success(`${payload.code} created`);
       }
@@ -79,7 +107,7 @@ export default function CouponsPage() {
     (async () => {
       try {
         const { data } = await couponsApi.listCoupons({ limit: 100 });
-        setCoupons(data.data || []);
+        setCoupons((data.data || []).map(normalizeCoupon));
       } catch (error) {
         console.error("Failed to load coupons:", error?.response || error.message);
         // fallback: keep empty list
