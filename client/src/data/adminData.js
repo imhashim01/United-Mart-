@@ -23,6 +23,7 @@ export const STATUS_BADGE_VARIANT = {
   "Out for Delivery": "accent",
   Delivered: "success",
   Cancelled: "danger",
+  Returned: "danger",
 };
 
 const CUSTOMER_NAMES = [

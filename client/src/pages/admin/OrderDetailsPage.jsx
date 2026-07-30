@@ -78,7 +78,7 @@ export default function OrderDetailsPage() {
           </div>
 
           <div className="flex items-center gap-2.5">
-            {order.status !== "Cancelled" && order.status !== "Delivered" && (
+            {!["Cancelled", "Delivered", "Returned"].includes(order.status) && (
               <select
                 value={order.status}
                 onChange={(e) => handleStatusChange(e.target.value)}

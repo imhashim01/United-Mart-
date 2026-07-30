@@ -123,7 +123,7 @@ export default function OrdersPage() {
                 <td className="px-4 py-3.5 text-charcoal-600">{formatDate(order.createdAt)}</td>
                 <td className="px-4 py-3.5 font-semibold text-charcoal-900 tabular-nums">{formatPrice(order.total)}</td>
                 <td className="px-4 py-3.5">
-                  {order.status === "Cancelled" || order.status === "Delivered" ? (
+                  {["Cancelled", "Delivered", "Returned"].includes(order.status) ? (
                     <Badge variant={STATUS_BADGE_VARIANT[order.status]}>{order.status}</Badge>
                   ) : (
                     <div className="relative inline-block">
