@@ -118,7 +118,7 @@ export const adjustStockSchema = Joi.object({
 
 export const listProductsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1),
-  limit: Joi.number().integer().min(1).max(100),
+  limit: Joi.number().integer().min(1).max(200),
   category: Joi.string(),
   brand: Joi.string(),
   isActive: Joi.boolean(),

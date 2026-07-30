@@ -102,10 +102,12 @@ export default function ProductsPage() {
 
   const syncFromServer = async () => {
     try {
-      const { data } = await productsApi.listProducts({ limit: 200, fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal' });
+      const { data } = await productsApi.listProducts({ limit: 100, fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal' });
       const apiProducts = data.data || [];
       setProducts(apiProducts.map((product) => mapApiProduct(product)));
     } catch (error) {
+      const message = error?.response?.data?.message || "Failed to load products from server.";
+      toast.error(message);
       console.error("Failed to sync products from server:", error?.response || error.message);
     }
   };
