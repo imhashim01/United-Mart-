@@ -1,5 +1,5 @@
 import { mergeOrders } from "../utils/orderStorage";
-import { getPersistedBrandObjects, getPersistedCoupons, getPersistedAdminUsers } from "../utils/persistedData";
+import { getPersistedCoupons, getPersistedAdminUsers } from "../utils/persistedData";
 
 // Mock data for the Admin Dashboard. Replace with TanStack Query hooks
 // hitting real /api/v1/admin/* endpoints once the backend modules are built.
@@ -160,18 +160,6 @@ const buildAdminCustomers = (ordersList) => {
 export const customers = buildAdminCustomers(orders);
 export const getAdminCustomers = () => buildAdminCustomers(getAdminOrders());
 
-// ---- Brands ----
-const seedAdminBrands = [
-  { id: "b1", name: "National Foods", productsCount: 24, status: "Active", logo: "https://logo.clearbit.com/nationalfoods.pk" },
-  { id: "b2", name: "Shan Foods", productsCount: 18, status: "Active", logo: "https://logo.clearbit.com/shanfoods.com" },
-  { id: "b3", name: "Nestlé", productsCount: 31, status: "Active", logo: "https://logo.clearbit.com/nestle.com" },
-  { id: "b4", name: "Engro Foods", productsCount: 15, status: "Active", logo: "https://logo.clearbit.com/engrofoods.com" },
-  { id: "b5", name: "Unilever", productsCount: 22, status: "Active", logo: "https://logo.clearbit.com/unilever.com" },
-  { id: "b6", name: "Olpers", productsCount: 9, status: "Inactive", logo: "https://logo.clearbit.com/olpers.com" },
-];
-
-export const adminBrands = getPersistedBrandObjects(seedAdminBrands);
-
 // ---- Coupons ----
 const seedAdminCoupons = [
   { id: "c1", code: "FRESH10", type: "percent", value: 10, minSpend: 1000, usedCount: 142, maxUses: 500, expiresAt: "2026-08-31", status: "Active" },
@@ -200,7 +188,6 @@ export const payments = orders.slice(0, 20).map((o, i) => ({
   date: o.createdAt,
 }));
 
-// ---- Admins / Staff ----
 // ---- Admins / Staff ----
 const seedAdminUsers = [
   { id: "u1", name: "Hashim Ahmed", email: "hashim@unitedmartsukkur.pk", role: "admin", status: "Active", avatar: "https://i.pravatar.cc/100?img=11", lastActive: "2026-07-25T09:00:00Z" },

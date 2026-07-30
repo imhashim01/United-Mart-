@@ -2,10 +2,11 @@ import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
 import SectionHeader from "../ui/SectionHeader";
 import ProductCard from "../ui/ProductCard";
-import { todaysDeals } from "../../data/homeData";
+import { getTodaysDeals } from "../../data/homeData";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 export default function TodaysDeals() {
+    const todaysDeals = getTodaysDeals();
   return (
     <section className="bg-mango-100/40">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">

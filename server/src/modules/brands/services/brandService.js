@@ -22,10 +22,19 @@ export const getBrandById = async (id) => {
   return brand;
 };
 
-export const createBrand = async (data) => Brand.create(data);
+// The admin UI's "Logo URL" field sends a plain string; normalize it into
+// the { url, publicId } shape the schema stores.
+const normalizeLogoInput = (data) => {
+  if (typeof data.logo === 'string') {
+    return { ...data, logo: data.logo ? { url: data.logo, publicId: null } : null };
+  }
+  return data;
+};
+
+export const createBrand = async (data) => Brand.create(normalizeLogoInput(data));
 
 export const updateBrand = async (id, updates) => {
-  const brand = await Brand.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+  const brand = await Brand.findByIdAndUpdate(id, normalizeLogoInput(updates), { new: true, runValidators: true });
   if (!brand) throw ApiError.notFound('Brand not found');
   return brand;
 };

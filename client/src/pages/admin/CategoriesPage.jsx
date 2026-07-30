@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { Pencil, Trash2, Plus, FolderTree, Eye, X } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { categoryObjects, getProducts } from "../../data/productsData";
-import { persistCategoryObjects, persistProducts, persistCategoryNames } from "../../utils/persistedData";
+import { getCategoryObjects, getProducts, refreshCategories, refreshProducts } from "../../data/productsData";
+import * as categoriesApi from "../../features/admin/categories/api/categoriesApi";
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState(categoryObjects);
+  const [categories, setCategories] = useState(getCategoryObjects());
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("view");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [form, setForm] = useState({ name: "", status: "Active", image: "" });
+  const [saving, setSaving] = useState(false);
 
   const categoryRows = categories.map((category) => ({
     ...category,
@@ -38,57 +40,53 @@ export default function CategoriesPage() {
     setModalOpen(true);
   };
 
-  const handleDelete = (category) => {
-    if (window.confirm(`Delete ${category.name}?`)) {
-      setCategories((prev) => {
-        const next = prev.filter((item) => item.id !== category.id);
-        persistCategoryObjects(next);
-        // update persisted category names for filters/footer
-        persistCategoryNames(next.map((c) => c.name));
-        return next;
-      });
+  // Re-pulls the live list from the backend so every open tab/device
+  // (and every other component reading the shared cache) picks up the change.
+  const syncFromServer = async () => {
+    await refreshCategories();
+    setCategories(getCategoryObjects());
+    // Product->category names can change together (see handleSave), so
+    // keep the product cache in step too.
+    await refreshProducts();
+  };
+
+  const handleDelete = async (category) => {
+    if (!window.confirm(`Delete ${category.name}?`)) return;
+    try {
+      await categoriesApi.deleteCategory(category.id);
+      await syncFromServer();
+      toast.success("Category deleted");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete category");
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    if (!form.name.trim()) return;
-
     const nextName = form.name.trim();
     if (!nextName) return;
 
-    setCategories((prev) => {
-      const next = selectedCategory
-        ? prev.map((category) =>
-            category.id === selectedCategory.id
-              ? { ...category, name: nextName, status: form.status, image: form.image }
-              : category
-          )
-        : [
-            {
-              id: `cat-${nextName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now()}`,
-              name: nextName,
-              status: form.status,
-              image: form.image,
-            },
-            ...prev,
-          ];
+    const payload = {
+      name: nextName,
+      isActive: form.status === "Active",
+      image: form.image.trim() || "",
+    };
 
-      persistCategoryObjects(next);
-      // update persisted category names for filters/footer
-      persistCategoryNames(next.map((c) => c.name));
-
-      if (selectedCategory && selectedCategory.name !== nextName) {
-        const nextProducts = getProducts().map((product) =>
-          product.category === selectedCategory.name ? { ...product, category: nextName } : product
-        );
-        persistProducts(nextProducts);
+    setSaving(true);
+    try {
+      if (selectedCategory) {
+        await categoriesApi.updateCategory(selectedCategory.id, payload);
+      } else {
+        await categoriesApi.createCategory(payload);
       }
-
-      return next;
-    });
-
-    setModalOpen(false);
+      await syncFromServer();
+      toast.success(selectedCategory ? "Category updated" : "Category created");
+      setModalOpen(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to save category");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -178,12 +176,14 @@ export default function CategoriesPage() {
                   <span className="mb-1.5 block">Status</span>
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 bg-white">
                     <option value="Active">Active</option>
-                    <option value="Draft">Draft</option>
+                    <option value="Inactive">Inactive</option>
                   </select>
                 </label>
                 <div className="flex justify-end gap-2 pt-2">
                   <button type="button" onClick={() => setModalOpen(false)} className="h-10 rounded-[var(--radius-md)] border border-border-strong px-4 text-sm font-semibold text-charcoal-900">Cancel</button>
-                  <button type="submit" className="h-10 rounded-[var(--radius-md)] bg-orchard-900 px-4 text-sm font-semibold text-white">Save</button>
+                  <button type="submit" disabled={saving} className="h-10 rounded-[var(--radius-md)] bg-orchard-900 px-4 text-sm font-semibold text-white disabled:opacity-60">
+                    {saving ? "Saving..." : "Save"}
+                  </button>
                 </div>
               </form>
             )}

@@ -1,10 +1,11 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import SectionHeader from "../ui/SectionHeader";
-import { brands } from "../../data/homeData";
+import { getBrands } from "../../data/homeData";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 export default function BrandsSection() {
+  const brands = getBrands();
   return (
     <section className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">
       <SectionHeader eyebrow="Trusted Brands" title="Shop by Brand" />

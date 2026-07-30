@@ -2,8 +2,9 @@ import { Facebook, Instagram, MessageCircleMore, MapPin, Phone, Mail } from "luc
 import { Link } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
 import { useEffect, useState } from "react";
-import { getPersistedSettings, getPersistedCategoryObjects } from "../../utils/persistedData";
-
+import { getSettings, getPersistedCategoryObjects } from "../../utils/persistedData";
+import { getPersistedSettings } from "../../utils/persistedData";
+import { getCategoryObjects } from "../../data/productsData";
 const FOOTER_COLUMNS = [
   {
     title: "Shop",
@@ -49,7 +50,7 @@ export default function Footer() {
       address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
     }));
     // Load persisted categories (if admin edited them) and convert to footer links
-    const cats = getPersistedCategoryObjects([]);
+    const cats = getCategoryObjects();
     if (Array.isArray(cats) && cats.length > 0) {
       setCategoryLinks(
         cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
@@ -58,9 +59,9 @@ export default function Footer() {
   }, []);
 
   const storeName = settings?.storeName ?? "United Mart Sukkur";
-  const supportEmail = settings?.supportEmail ?? "support@unitedmartsukkur.pk";
-  const supportPhone = settings?.supportPhone ?? "+92 300 1234567";
-  const address = settings?.address ?? "Station Road, Sukkur, Sindh, Pakistan";
+  const supportEmail = settings?.supportEmail ?? "unitedmartsukkur@gmail.com";
+  const supportPhone = settings?.supportPhone ?? "+92 333 7111954";
+  const address = settings?.address ?? "Anaj Bazar, Sukkur, Sindh, Pakistan";
 
   return (
     <footer className="bg-orchard-900 text-white">

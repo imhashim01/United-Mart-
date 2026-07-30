@@ -44,13 +44,23 @@ export const getCategoryBySlug = async (slug) => {
   return category;
 };
 
+// The admin UI's "Image URL" field sends a plain string; normalize it into
+// the { url, publicId } shape the schema stores (publicId stays null since
+// there's no Cloudinary asset to clean up for a manually-pasted URL).
+const normalizeImageInput = (data) => {
+  if (typeof data.image === 'string') {
+    return { ...data, image: data.image ? { url: data.image, publicId: null } : null };
+  }
+  return data;
+};
+
 export const createCategory = async (data) => {
-  const category = await Category.create(data);
+  const category = await Category.create(normalizeImageInput(data));
   return category;
 };
 
 export const updateCategory = async (id, updates) => {
-  const category = await Category.findByIdAndUpdate(id, updates, { new: true, runValidators: true });
+  const category = await Category.findByIdAndUpdate(id, normalizeImageInput(updates), { new: true, runValidators: true });
   if (!category) throw ApiError.notFound('Category not found');
   return category;
 };

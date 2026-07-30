@@ -5,6 +5,9 @@ export const createBrandSchema = Joi.object({
   description: Joi.string().trim().allow('', null).max(1000),
   website: Joi.string().uri().allow('', null),
   isActive: Joi.boolean().default(true),
+  // Accepts a plain URL string from the admin form; brandService normalizes
+  // it into the { url, publicId } shape the schema stores.
+  logo: Joi.string().trim().allow('', null),
 });
 
 export const updateBrandSchema = Joi.object({
@@ -12,6 +15,7 @@ export const updateBrandSchema = Joi.object({
   description: Joi.string().trim().allow('', null).max(1000),
   website: Joi.string().uri().allow('', null),
   isActive: Joi.boolean(),
+  logo: Joi.string().trim().allow('', null),
 });
 
 export const listBrandsQuerySchema = Joi.object({

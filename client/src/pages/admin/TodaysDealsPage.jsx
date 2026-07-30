@@ -1,19 +1,26 @@
 import { useState } from "react";
+import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
-import { getProducts } from "../../data/productsData";
-import { persistProducts, getPersistedProducts } from "../../utils/persistedData";
+import { getProducts, refreshProducts } from "../../data/productsData";
+import * as productsApi from "../../features/admin/products/api/productsApi";
 
 export default function TodaysDealsPage() {
   const [products, setProducts] = useState(getProducts());
+  const [pendingId, setPendingId] = useState(null);
 
-  const toggleDeal = (product) => {
-    const persisted = getPersistedProducts(products);
-    const next = products.map((p) => (p.id === product.id ? { ...p, isTodaysDeal: !p.isTodaysDeal } : p));
-    // Persist minimal shape (the admin UI persists entire product objects elsewhere)
-    persistProducts(next);
-    setProducts(next);
-    window.location.reload();
+  const toggleDeal = async (product) => {
+    setPendingId(product.id);
+    try {
+      await productsApi.updateProduct(product.id, { isTodaysDeal: !product.isTodaysDeal });
+      await refreshProducts();
+      setProducts(getProducts());
+      toast.success(product.isTodaysDeal ? "Removed from Today's Deals" : "Added to Today's Deals");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to update deal status");
+    } finally {
+      setPendingId(null);
+    }
   };
 
   return (
@@ -43,7 +50,12 @@ export default function TodaysDealsPage() {
                 <td className="px-4 py-3 font-medium text-charcoal-900">{p.price}</td>
                 <td className="px-4 py-3 text-right">
                   <label className="inline-flex items-center gap-2">
-                    <input type="checkbox" checked={p.isTodaysDeal} onChange={() => toggleDeal(p)} />
+                    <input
+                      type="checkbox"
+                      checked={p.isTodaysDeal}
+                      disabled={pendingId === p.id}
+                      onChange={() => toggleDeal(p)}
+                    />
                   </label>
                 </td>
               </tr>

@@ -6,6 +6,9 @@ export const createCategorySchema = Joi.object({
   parent: Joi.string().hex().length(24).allow(null, ''),
   displayOrder: Joi.number().integer().default(0),
   isActive: Joi.boolean().default(true),
+  // Accepts a plain URL string from the admin form; categoryService normalizes
+  // it into the { url, publicId } shape the schema stores.
+  image: Joi.string().trim().allow('', null),
 });
 
 export const updateCategorySchema = Joi.object({
@@ -14,6 +17,7 @@ export const updateCategorySchema = Joi.object({
   parent: Joi.string().hex().length(24).allow(null, ''),
   displayOrder: Joi.number().integer(),
   isActive: Joi.boolean(),
+  image: Joi.string().trim().allow('', null),
 });
 
 export const listCategoriesQuerySchema = Joi.object({

@@ -1,65 +1,82 @@
 import { useState } from "react";
 import { Pencil, Trash2, Plus, X } from "lucide-react";
+import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
-import { adminBrands } from "../../data/adminData";
-import { persistBrandNames, persistBrandObjects } from "../../utils/persistedData";
+import { getBrandObjects, getProducts, refreshBrands } from "../../data/productsData";
+import * as brandsApi from "../../features/admin/brands/api/brandsApi";
 
 export default function BrandsPage() {
-  const [brands, setBrands] = useState(adminBrands);
+  const [brandObjects, setBrandObjects] = useState(getBrandObjects());
+  // The backend doesn't compute a per-brand product count, so derive it
+  // from the live product cache the same way CategoriesPage does.
+  const brands = brandObjects.map((b) => ({
+    ...b,
+    productsCount: getProducts().filter((p) => p.brand === b.name).length,
+  }));
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedBrand, setSelectedBrand] = useState(null);
-  const [form, setForm] = useState({ name: "", logo: "", status: "Active", productsCount: 0 });
+  const [form, setForm] = useState({ name: "", logo: "", status: "Active" });
+  const [saving, setSaving] = useState(false);
+
+  const syncFromServer = async () => {
+    await refreshBrands();
+    setBrandObjects(getBrandObjects());
+  };
 
   const openAddModal = () => {
     setModalMode("add");
     setSelectedBrand(null);
-    setForm({ name: "", logo: "", status: "Active", productsCount: 0 });
+    setForm({ name: "", logo: "", status: "Active" });
     setModalOpen(true);
   };
 
   const openEditModal = (brand) => {
     setModalMode("edit");
     setSelectedBrand(brand);
-    setForm({ name: brand.name, logo: brand.logo, status: brand.status, productsCount: brand.productsCount });
+    setForm({ name: brand.name, logo: brand.logo, status: brand.status });
     setModalOpen(true);
   };
 
-  const handleDelete = (brand) => {
-    if (window.confirm(`Delete ${brand.name}?`)) {
-      setBrands((prev) => {
-        const next = prev.filter((item) => item.id !== brand.id);
-        persistBrandObjects(next);
-        persistBrandNames(next.map((item) => item.name));
-        adminBrands.splice(0, adminBrands.length, ...next);
-        return next;
-      });
+  const handleDelete = async (brand) => {
+    if (!window.confirm(`Delete ${brand.name}?`)) return;
+    try {
+      await brandsApi.deleteBrand(brand.id);
+      await syncFromServer();
+      toast.success("Brand deleted");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to delete brand");
     }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
+    const name = form.name.trim();
+    if (!name) return;
+
     const payload = {
-      id: selectedBrand?.id ?? `brand-${Date.now()}`,
-      name: form.name.trim(),
-      logo: form.logo.trim() || "https://logo.clearbit.com/example.com",
-      status: form.status,
-      productsCount: Number(form.productsCount) || 0,
+      name,
+      logo: form.logo.trim() || "",
+      isActive: form.status === "Active",
     };
 
-    setBrands((prev) => {
-      const next = selectedBrand
-        ? prev.map((item) => (item.id === selectedBrand.id ? payload : item))
-        : [payload, ...prev.filter((item) => item.id !== payload.id)];
-      const uniqueNext = Array.from(new Map(next.map((item) => [item.id, item])).values());
-      persistBrandObjects(uniqueNext);
-      persistBrandNames(uniqueNext.map((item) => item.name));
-      adminBrands.splice(0, adminBrands.length, ...uniqueNext);
-      return uniqueNext;
-    });
-    setModalOpen(false);
+    setSaving(true);
+    try {
+      if (selectedBrand) {
+        await brandsApi.updateBrand(selectedBrand.id, payload);
+      } else {
+        await brandsApi.createBrand(payload);
+      }
+      await syncFromServer();
+      toast.success(selectedBrand ? "Brand updated" : "Brand created");
+      setModalOpen(false);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to save brand");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -126,22 +143,18 @@ export default function BrandsPage() {
                 <span className="mb-1.5 block">Logo URL</span>
                 <input value={form.logo} onChange={(e) => setForm({ ...form, logo: e.target.value })} placeholder="https://example.com/logo.png" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
               </label>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-sm font-medium text-charcoal-900">
-                  <span className="mb-1.5 block">Status</span>
-                  <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong bg-white px-3 py-2">
-                    <option value="Active">Active</option>
-                    <option value="Inactive">Inactive</option>
-                  </select>
-                </label>
-                <label className="block text-sm font-medium text-charcoal-900">
-                  <span className="mb-1.5 block">Products count</span>
-                  <input type="number" min="0" value={form.productsCount} onChange={(e) => setForm({ ...form, productsCount: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
-                </label>
-              </div>
+              <label className="block text-sm font-medium text-charcoal-900">
+                <span className="mb-1.5 block">Status</span>
+                <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong bg-white px-3 py-2">
+                  <option value="Active">Active</option>
+                  <option value="Inactive">Inactive</option>
+                </select>
+              </label>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="h-10 rounded-[var(--radius-md)] border border-border-strong px-4 text-sm font-semibold text-charcoal-900">Cancel</button>
-                <button type="submit" className="h-10 rounded-[var(--radius-md)] bg-orchard-900 px-4 text-sm font-semibold text-white">Save</button>
+                <button type="submit" disabled={saving} className="h-10 rounded-[var(--radius-md)] bg-orchard-900 px-4 text-sm font-semibold text-white disabled:opacity-60">
+                  {saving ? "Saving..." : "Save"}
+                </button>
               </div>
             </form>
           </div>
