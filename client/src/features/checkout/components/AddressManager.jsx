@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { MapPin, Plus, Check, Home, Briefcase, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "../../auth/hooks/useAuth";
-import { addMyAddress } from "../../auth/api/authApi";
+import { addMyAddress, getMe } from "../../auth/api/authApi";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
@@ -28,6 +28,32 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
       setAddresses(user.addresses.map(normalizeAddress));
     }
   }, [user?.addresses]);
+
+  // If the user exists but has no addresses loaded (possible stale auth state),
+  // refresh the profile from the server to ensure persisted addresses are available.
+  useEffect(() => {
+    let mounted = true;
+    const refreshUser = async () => {
+      if (!user) return;
+      if (Array.isArray(user.addresses) && user.addresses.length > 0) return;
+      try {
+        const resp = await getMe();
+        if (!mounted) return;
+        const fresh = resp.data.data;
+        if (fresh?.addresses) {
+          setAddresses(fresh.addresses.map(normalizeAddress));
+          // also update auth store so other components see the fresh addresses
+          useAuthStore.getState().setUser(fresh);
+        }
+      } catch (err) {
+        // ignore — keep current state
+      }
+    };
+    refreshUser();
+    return () => {
+      mounted = false;
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     if (addresses.length === 0) {
