@@ -128,13 +128,20 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       await coupon.save({ session });
     }
 
-    await createPaymentForOrder({ order, session });
+    await createPaymentForOrder(
+  {
+    orderId: order._id,
+    userId,
+    amount: totalAmount,
+    method: paymentMethod,
+  },
+  session
+);
 
     if (session) {
       await session.commitTransaction();
       session.endSession();
     }
-
     try {
       await earnPoints(userId, calculatePointsForAmount(totalAmount));
       await createInvoiceForOrder(order);
