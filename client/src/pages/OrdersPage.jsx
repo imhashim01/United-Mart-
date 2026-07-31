@@ -4,16 +4,42 @@ import { ArrowRight } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import { getPersistedOrders, subscribeOrderStorageUpdates } from "../utils/orderStorage";
+import * as ordersApi from "../features/admin/orders/api/ordersApi";
 import { formatDate } from "../utils/formatCurrency";
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState(() => getPersistedOrders());
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+
+    const fetchOrders = async () => {
+      try {
+        const { data } = await ordersApi.listMyOrders({ limit: 100 });
+        if (!mounted) return;
+        setOrders(data.data || getPersistedOrders());
+      } catch (error) {
+        if (!mounted) return;
+        console.error("Failed to load customer orders:", error?.response || error.message);
+        setOrders(getPersistedOrders());
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 10000);
+
     const updateOrders = () => setOrders(getPersistedOrders());
     const unsubscribe = subscribeOrderStorageUpdates(updateOrders);
+
     window.scrollTo({ top: 0, behavior: "instant" });
-    return unsubscribe;
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+      unsubscribe();
+    };
   }, []);
 
   return (
@@ -28,7 +54,12 @@ export default function OrdersPage() {
           </p>
         </div>
 
-        {orders.length === 0 ? (
+        {loading ? (
+          <div className="rounded-[var(--radius-lg)] border border-border bg-white p-10 text-center shadow-sm">
+            <h2 className="text-xl font-semibold text-charcoal-900">Loading orders...</h2>
+            <p className="mt-2 text-sm text-charcoal-600">Fetching the latest order status from your account.</p>
+          </div>
+        ) : orders.length === 0 ? (
           <div className="rounded-[var(--radius-lg)] border border-border bg-white p-10 text-center shadow-sm">
             <h2 className="text-xl font-semibold text-charcoal-900">No orders yet</h2>
             <p className="mt-2 text-sm text-charcoal-600">Place an order first, then return here to track it.</p>

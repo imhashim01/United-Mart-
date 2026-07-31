@@ -105,6 +105,15 @@ export const listOrders = async (params = {}) => {
   return normalizeOrderResponse(response);
 };
 
+export const listMyOrders = async (params = {}) => {
+  const safeParams = { ...params };
+  if (safeParams.limit == null || safeParams.limit > 100) {
+    safeParams.limit = 100;
+  }
+  const response = await api.get("/orders/me", { params: safeParams });
+  return normalizeOrderResponse(response);
+};
+
 export const getOrder = async (id) => {
   const response = await api.get(`/orders/${id}`);
   return normalizeOrderResponse(response);
