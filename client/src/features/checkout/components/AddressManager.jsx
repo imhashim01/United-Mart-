@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { MapPin, Plus, Check, Home, Briefcase, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "../../auth/hooks/useAuth";
-import { addMyAddress, getMe } from "../../auth/api/authApi";
+import { addMyAddress, getMe, updateMyAddress } from "../../auth/api/authApi";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
@@ -23,6 +23,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     user?.addresses?.map(normalizeAddress) ?? []
   );
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     if (user?.addresses) {
@@ -91,7 +92,12 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
   const onSubmit = async (newAddress) => {
     if (user) {
       try {
-        const response = await addMyAddress(newAddress);
+        let response;
+        if (editingId) {
+          response = await updateMyAddress(editingId, newAddress);
+        } else {
+          response = await addMyAddress(newAddress);
+        }
         const updatedUser = response.data.data;
         setUser(updatedUser);
         const savedAddresses = (updatedUser.addresses ?? []).map(normalizeAddress);
@@ -107,6 +113,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         onAddressChange?.(addedAddress);
         reset();
         setShowForm(false);
+        setEditingId(null);
         toast.success("Address saved successfully");
         return;
       } catch (error) {
@@ -122,6 +129,22 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     onAddressChange?.(localAddress);
     reset();
     setShowForm(false);
+  };
+
+  const startEdit = (addr) => {
+    setEditingId(addr.id);
+    // preload the form
+    reset({
+      name: addr.name || "",
+      phone: addr.phone || "",
+      line1: addr.line1 || "",
+      area: addr.area || addr.state || "",
+      city: addr.city || "",
+      label: addr.label || "home",
+      postalCode: addr.postalCode || "",
+      country: addr.country || "",
+    });
+    setShowForm(true);
   };
 
   return (
@@ -176,6 +199,16 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
                       Default
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      startEdit(addr);
+                    }}
+                    className="text-xs text-orchard-900 hover:text-orchard-700 ml-auto"
+                  >
+                    Edit
+                  </button>
                 </div>
                 <p className="text-sm text-charcoal-900">{addr.name} · {addr.phone}</p>
                 <p className="text-xs text-charcoal-600">{addr.line1}, {addr.area}, {addr.city}</p>
