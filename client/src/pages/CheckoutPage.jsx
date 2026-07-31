@@ -58,11 +58,11 @@ export default function CheckoutPage() {
     try {
       const payload = {
         items: items.map((item) => ({
-    productId: item.productId,
-    ...(item.variantId ? { variantId: item.variantId } : {}),
-    ...(rewardPointsToRedeem > 0 ? { pointsToRedeem: rewardPointsToRedeem } : {}),
-    quantity: item.qty,
-  })),
+          productId: item.productId,
+          ...(item.variantId ? { variantId: item.variantId } : {}),
+          quantity: item.qty,
+        })),
+        ...(rewardPointsToRedeem > 0 ? { pointsToRedeem: rewardPointsToRedeem } : {}),
         shippingAddress: {
           label: selectedAddress.label || "",
           line1: selectedAddress.line1 || "",
