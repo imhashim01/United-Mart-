@@ -6,7 +6,7 @@ import Coupon from '../../coupons/models/couponModel.js';
 import { ApiError } from '../../../utils/ApiError.js';
 import { ApiFeatures, buildPaginationMeta } from '../../../utils/apiFeatures.js';
 import { generateOrderNumber } from '../../../utils/generateInvoiceNumber.js';
-import { earnPoints, calculatePointsForAmount } from '../../rewards/services/rewardService.js';
+import { earnPoints, calculatePointsForAmount, redeemPointsForOrder } from '../../rewards/services/rewardService.js';
 import { createInvoiceForOrder } from '../../invoices/services/invoiceService.js';
 import { createPaymentForOrder } from '../../payments/services/paymentService.js';
 import { notifyUser } from '../../notifications/services/notificationService.js';
@@ -17,7 +17,7 @@ const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 50
 
 const canUseTransactions = () => mongoose.connection.readyState === 1 && !!process.env.MONGO_REPLICA_SET;
 
-export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items }) => {
+export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items, pointsToRedeem }) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw ApiError.badRequest('Your cart is empty');
   }
@@ -95,10 +95,17 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       }
     }
 
+    // Reward points redemption: 1 point = Rs 1, capped at 50% of subtotal —
+    // mirrors the same limit the checkout UI enforces, recalculated
+    // server-side so the client can't just send an arbitrary number.
+    const requestedPoints = Math.max(0, Math.floor(pointsToRedeem || 0));
+    const redeemablePoints = Math.min(requestedPoints, Math.floor(subtotal * 0.5));
+    const rewardPointsDiscount = redeemablePoints;
+
     const taxableAmount = subtotal - discountAmount;
     const taxAmount = Math.round(taxableAmount * TAX_RATE);
     const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
-    const totalAmount = taxableAmount + taxAmount + shippingFee;
+    const totalAmount = Math.max(0, taxableAmount + taxAmount + shippingFee - rewardPointsDiscount);
 
     const [order] = await Order.create(
       [
@@ -113,6 +120,8 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
           taxAmount,
           shippingFee,
           totalAmount,
+          rewardPointsUsed: redeemablePoints,
+          rewardPointsEarned: calculatePointsForAmount(totalAmount),
           coupon: coupon?._id ?? null,
           orderNumber: generateOrderNumber(),
           customerNote,
@@ -128,22 +137,42 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       await coupon.save({ session });
     }
 
+    // Deduct redeemed points inside the same transaction as the order —
+    // if the user's balance check fails here, the whole order rolls back.
+    if (redeemablePoints > 0) {
+      await redeemPointsForOrder(
+        {
+          userId,
+          points: redeemablePoints,
+          orderId: order._id,
+          description: `Redeemed at checkout for order ${order.orderNumber}`,
+        },
+        session
+      );
+    }
+
     await createPaymentForOrder(
-  {
-    orderId: order._id,
-    userId,
-    amount: totalAmount,
-    method: paymentMethod,
-  },
-  session
-);
+      {
+        orderId: order._id,
+        userId,
+        amount: totalAmount,
+        method: paymentMethod,
+      },
+      session
+    );
 
     if (session) {
       await session.commitTransaction();
       session.endSession();
     }
+
     try {
-      await earnPoints(userId, calculatePointsForAmount(totalAmount));
+      await earnPoints({
+        userId,
+        amount: totalAmount,
+        orderId: order._id,
+        description: `Earned from order ${order.orderNumber}`,
+      });
       await createInvoiceForOrder(order);
       await notifyUser(userId, `Your order ${order.orderNumber} has been placed successfully.`);
     } catch (sideEffectError) {

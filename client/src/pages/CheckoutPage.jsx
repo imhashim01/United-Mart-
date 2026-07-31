@@ -26,6 +26,7 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const couponCode = useCartStore((s) => s.couponCode);
   const user = useAuthStore((s) => s.user);
+  const rewardPointsToRedeem = useCartStore((s) => s.rewardPointsToRedeem);
 
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -59,6 +60,7 @@ export default function CheckoutPage() {
         items: items.map((item) => ({
     productId: item.productId,
     ...(item.variantId ? { variantId: item.variantId } : {}),
+    ...(rewardPointsToRedeem > 0 ? { pointsToRedeem: rewardPointsToRedeem } : {}),
     quantity: item.qty,
   })),
         shippingAddress: {

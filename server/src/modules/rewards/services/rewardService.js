@@ -38,6 +38,32 @@ export const earnPoints = async ({ userId, amount, orderId, description }, sessi
   return reward;
 };
 
+export const redeemPointsForOrder = async ({ userId, points, orderId, description }, session) => {
+  if (!points || points <= 0) return null;
+
+  const user = await User.findById(userId).session(session || null);
+  if (!user) throw ApiError.notFound('User not found');
+  if (user.rewardPoints < points) throw ApiError.badRequest('Insufficient reward points balance');
+
+  user.rewardPoints -= points;
+  await user.save({ validateBeforeSave: false, session });
+
+  const [reward] = await Reward.create(
+    [
+      {
+        user: userId,
+        points: -points,
+        type: 'redeemed',
+        order: orderId || null,
+        description: description || 'Redeemed at checkout',
+        balanceAfter: user.rewardPoints,
+      },
+    ],
+    { session }
+  );
+
+  return reward;
+};
 export const adjustPoints = async ({ userId, points, description }) => {
   const user = await User.findById(userId);
   if (!user) throw ApiError.notFound('User not found');

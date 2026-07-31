@@ -20,15 +20,13 @@ const orderItemInputSchema = Joi.object({
 });
 
 export const createOrderSchema = Joi.object({
-  // The frontend cart is local-only (never synced to a server Cart document),
-  // so the client sends its current items directly instead of the backend
-  // reading a Cart record that will never exist.
   items: Joi.array().items(orderItemInputSchema).min(1).required(),
   shippingAddress: addressSchema.required(),
   billingAddress: addressSchema,
   paymentMethod: Joi.string().valid('cod', 'card', 'bank_transfer', 'jazzcash', 'easypaisa').required(),
   couponCode: Joi.string().trim().uppercase().allow('', null),
   customerNote: Joi.string().trim().max(500).allow('', null),
+  pointsToRedeem: Joi.number().integer().min(0).default(0),
 });
 
 export const updateOrderStatusSchema = Joi.object({
