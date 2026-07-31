@@ -3,12 +3,11 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
-import { getPersistedOrders, subscribeOrderStorageUpdates } from "../utils/orderStorage";
 import * as ordersApi from "../features/admin/orders/api/ordersApi";
 import { formatDate } from "../utils/formatCurrency";
 
 export default function OrdersPage() {
-  const [orders, setOrders] = useState(() => getPersistedOrders());
+  const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -18,11 +17,11 @@ export default function OrdersPage() {
       try {
         const { data } = await ordersApi.listMyOrders({ limit: 100 });
         if (!mounted) return;
-        setOrders(data.data || getPersistedOrders());
+        setOrders(data.data || []);
       } catch (error) {
         if (!mounted) return;
         console.error("Failed to load customer orders:", error?.response || error.message);
-        setOrders(getPersistedOrders());
+        setOrders([]);
       } finally {
         if (mounted) setLoading(false);
       }
@@ -31,14 +30,10 @@ export default function OrdersPage() {
     fetchOrders();
     const interval = setInterval(fetchOrders, 10000);
 
-    const updateOrders = () => setOrders(getPersistedOrders());
-    const unsubscribe = subscribeOrderStorageUpdates(updateOrders);
-
     window.scrollTo({ top: 0, behavior: "instant" });
     return () => {
       mounted = false;
       clearInterval(interval);
-      unsubscribe();
     };
   }, []);
 
