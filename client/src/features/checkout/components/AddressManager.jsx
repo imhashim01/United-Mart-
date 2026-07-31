@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { MapPin, Plus, Check, Home, Briefcase, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "../../auth/hooks/useAuth";
-import { addMyAddress, updateMyAddress, getMe } from "../../auth/api/authApi";
+import { addMyAddress, getMe } from "../../auth/api/authApi";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
@@ -22,7 +22,6 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     user?.addresses?.map(normalizeAddress) ?? []
   );
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
     if (user?.addresses) {
@@ -63,8 +62,9 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     }
 
     if (!selectedId && addresses.length > 0) {
-      onSelect(addresses[0].id);
-      onAddressChange?.(addresses[0]);
+      const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
+      onSelect(defaultAddr.id);
+      onAddressChange?.(defaultAddr);
       setShowForm(false);
       return;
     }
@@ -82,29 +82,9 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm();
-
-  const onSubmit = async (data) => {
-    const newAddress = {
-      label: data.label,
-      name: data.name,
-      phone: data.phone,
-      line1: data.line1,
-      city: data.city,
-      state: data.area,
-      postalCode: data.postalCode,
-      country: data.country || "Pakistan",
-      isDefault: addresses.length === 0,
-    };
-
     if (user) {
       try {
-        let response;
-        if (editingId) {
-          response = await updateMyAddress(editingId, newAddress);
-        } else {
-          response = await addMyAddress(newAddress);
-        }
+        const response = await addMyAddress(newAddress);
         const updatedUser = response.data.data;
         setUser(updatedUser);
         const savedAddresses = (updatedUser.addresses ?? []).map(normalizeAddress);
@@ -114,6 +94,19 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
             address.line1 === newAddress.line1 &&
             address.phone === newAddress.phone &&
             address.city === newAddress.city
+        ) ?? savedAddresses[savedAddresses.length - 1];
+        onSelect(addedAddress?.id);
+        onAddressChange?.(addedAddress);
+        reset();
+        setShowForm(false);
+        toast.success('Address saved successfully');
+        return;
+      } catch (error) {
+        const message = error?.response?.data?.message || 'Failed to save address';
+        toast.error(message);
+        return;
+      }
+    }
         ) ?? savedAddresses[savedAddresses.length - 1];
         onSelect(addedAddress?.id);
         onAddressChange?.(addedAddress);
@@ -193,32 +186,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
                 <p className="text-sm text-charcoal-900">{addr.name} · {addr.phone}</p>
                 <p className="text-xs text-charcoal-600">{addr.line1}, {addr.area}, {addr.city}</p>
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    // open form in edit mode
-                    setEditingId(addr.id);
-                    // populate form fields
-                    reset({
-                      name: addr.name || '',
-                      phone: addr.phone || '',
-                      line1: addr.line1 || '',
-                      area: addr.area || addr.state || '',
-                      city: addr.city || '',
-                      postalCode: addr.postalCode || '',
-                      label: addr.label || 'home',
-                      country: addr.country || 'Pakistan',
-                    });
-                    setShowForm(true);
-                  }}
-                  className="text-xs text-orchard-900 underline"
-                >
-                  Edit
-                </button>
-                {selected && <Check size={18} className="text-orchard-900 shrink-0" />}
-              </div>
+              {selected && <Check size={18} className="text-orchard-900 shrink-0" />}
             </button>
           );
         })}
