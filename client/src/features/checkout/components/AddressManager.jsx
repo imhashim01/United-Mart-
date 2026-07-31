@@ -13,6 +13,7 @@ const normalizeAddress = (address) => ({
   ...address,
   id: address.id ?? address._id ?? `addr-${Date.now()}`,
   area: address.area ?? address.state ?? "",
+  isDefault: !!address.isDefault,
 });
 
 export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
@@ -61,7 +62,10 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
       return;
     }
 
-    if (!selectedId && addresses.length > 0) {
+    // If there's no selectedId, or the selectedId doesn't match any known
+    // address (stale value), pick the previously-marked default address.
+    const selectedExists = selectedId && addresses.some((a) => a.id === selectedId);
+    if ((!selectedId || !selectedExists) && addresses.length > 0) {
       const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
       onSelect(defaultAddr.id);
       onAddressChange?.(defaultAddr);
