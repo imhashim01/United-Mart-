@@ -34,10 +34,14 @@ export const useAuthStore = create(
         set({ user, token, error: null });
       },
 
+      setUser: (user) => set({ user }),
+
       clearAuth: () => {
         localStorage.removeItem('authToken');
         set({ user: null, token: null, error: null });
       },
+
+      // ...register, login, logout, verifyEmail, forgotPassword, resetPassword, hydrate — all unchanged
 
       setUser: (user) => set({ user }),
 
