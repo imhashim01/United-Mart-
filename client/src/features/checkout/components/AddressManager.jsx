@@ -82,6 +82,9 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     handleSubmit,
     reset,
     formState: { errors },
+  } = useForm();
+
+  const onSubmit = async (newAddress) => {
     if (user) {
       try {
         const response = await addMyAddress(newAddress);
@@ -89,34 +92,21 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         setUser(updatedUser);
         const savedAddresses = (updatedUser.addresses ?? []).map(normalizeAddress);
         setAddresses(savedAddresses);
-        const addedAddress = savedAddresses.find(
-          (address) =>
-            address.line1 === newAddress.line1 &&
-            address.phone === newAddress.phone &&
-            address.city === newAddress.city
-        ) ?? savedAddresses[savedAddresses.length - 1];
+        const addedAddress =
+          savedAddresses.find(
+            (address) =>
+              address.line1 === newAddress.line1 &&
+              address.phone === newAddress.phone &&
+              address.city === newAddress.city
+          ) ?? savedAddresses[savedAddresses.length - 1];
         onSelect(addedAddress?.id);
         onAddressChange?.(addedAddress);
         reset();
         setShowForm(false);
-        toast.success('Address saved successfully');
+        toast.success("Address saved successfully");
         return;
       } catch (error) {
-        const message = error?.response?.data?.message || 'Failed to save address';
-        toast.error(message);
-        return;
-      }
-    }
-        ) ?? savedAddresses[savedAddresses.length - 1];
-        onSelect(addedAddress?.id);
-        onAddressChange?.(addedAddress);
-        reset();
-        setShowForm(false);
-        setEditingId(null);
-        toast.success('Address saved successfully');
-        return;
-      } catch (error) {
-        const message = error?.response?.data?.message || 'Failed to save address';
+        const message = error?.response?.data?.message || "Failed to save address";
         toast.error(message);
         return;
       }
