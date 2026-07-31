@@ -1,12 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-
-// Mock coupon table — replace with a real /api/v1/coupons/validate call later.
-const COUPONS = {
-  FRESH10: { type: "percent", value: 10, minSpend: 1000, label: "10% off" },
-  SAVE200: { type: "flat", value: 200, minSpend: 1500, label: "Rs 200 off" },
-  MANGO24: { type: "percent", value: 24, minSpend: 2000, label: "24% off (seasonal)" },
-};
+import * as couponsApi from "../features/checkout/api/couponsApi";
 
 const DELIVERY_FLAT_RATE = 150;
 const FREE_DELIVERY_THRESHOLD = 3000;
@@ -18,7 +12,8 @@ export const useCartStore = create(
     (set, get) => ({
       items: [], // { id, name, image, price, unit, qty, stock }
       couponCode: null,
-      rewardPointsAvailable: 640, // mock user balance — replace with account data
+      appliedCoupon: null, // { discountType, discountValue, maxDiscountAmount, minPurchaseAmount } — set only after the backend validates the code
+      rewardPointsAvailable: 0, // hydrated from GET /rewards/me by RewardPointsRedeem.jsx on mount
       rewardPointsToRedeem: 0,
 
       addItem: (product, qty = 1, variantId = null) => {
@@ -29,7 +24,6 @@ export const useCartStore = create(
         const stock = variant ? variant.stock : product.stockCount ?? 99;
         const price = variant ? variant.discountPrice ?? variant.price : product.price;
         const unit = variant ? variant.unit : product.unit;
-        // Choose image: prefer variant primary image, then first variant image, then product images
         const resolveImageFromImageObj = (img) => (typeof img === 'string' ? img : img.imageUrl || img.url || img.thumbnailUrl || '');
         let image = '';
         if (variant) {
@@ -54,19 +48,19 @@ export const useCartStore = create(
             items: [
               ...items,
               {
-                    id: itemId,
-                    productId: product.id,
-                    variantId: variantId ?? null,
-                    variantName: variant?.name ?? null,
-                    variantSku: variant?.sku ?? null,
-                    name: product.name,
-                    image,
-                    price,
-                    unit,
-                    category: product.category ?? "Other",
-                    qty,
-                    stock,
-                  },
+                id: itemId,
+                productId: product.id,
+                variantId: variantId ?? null,
+                variantName: variant?.name ?? null,
+                variantSku: variant?.sku ?? null,
+                name: product.name,
+                image,
+                price,
+                unit,
+                category: product.category ?? "Other",
+                qty,
+                stock,
+              },
             ],
           });
         }
@@ -86,24 +80,38 @@ export const useCartStore = create(
         });
       },
 
-      clearCart: () => set({ items: [], couponCode: null, rewardPointsToRedeem: 0 }),
+      clearCart: () => set({ items: [], couponCode: null, appliedCoupon: null, rewardPointsToRedeem: 0 }),
 
-      applyCoupon: (code) => {
-        const upper = code.trim().toUpperCase();
-        const coupon = COUPONS[upper];
+      // Validates the code against the real backend (real coupons an admin
+      // created, real min-spend/expiry/usage-limit rules) instead of a
+      // hardcoded local table.
+      applyCoupon: async (code) => {
+        const trimmed = code.trim().toUpperCase();
         const subtotal = get().subtotal();
-        if (!coupon) return { success: false, message: "Invalid coupon code." };
-        if (subtotal < coupon.minSpend) {
+        try {
+          const { data } = await couponsApi.validateCoupon({ code: trimmed, subtotal });
+          const { coupon, discount } = data.data;
+          set({
+            couponCode: coupon.code,
+            appliedCoupon: {
+              discountType: coupon.discountType,
+              discountValue: coupon.discountValue,
+              maxDiscountAmount: coupon.maxDiscountAmount,
+              minPurchaseAmount: coupon.minPurchaseAmount,
+            },
+          });
+          return { success: true, message: `Coupon applied — you saved Rs ${discount.toLocaleString()}` };
+        } catch (error) {
           return {
             success: false,
-            message: `Add Rs ${(coupon.minSpend - subtotal).toLocaleString()} more to use this coupon.`,
+            message: error?.response?.data?.message || "Invalid coupon code.",
           };
         }
-        set({ couponCode: upper });
-        return { success: true, message: `Coupon applied — ${coupon.label}` };
       },
 
-      removeCoupon: () => set({ couponCode: null }),
+      removeCoupon: () => set({ couponCode: null, appliedCoupon: null }),
+
+      setRewardPointsAvailable: (points) => set({ rewardPointsAvailable: points }),
 
       setRewardPointsToRedeem: (points) => {
         const max = Math.min(get().rewardPointsAvailable, Math.floor(get().subtotal() * 0.5));
@@ -113,14 +121,20 @@ export const useCartStore = create(
       // ---- Derived values ----
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.qty, 0),
 
+      // Mirrors the backend's Coupon.calculateDiscount so the shown amount
+      // stays correct if the cart changes after the coupon was applied —
+      // the actual charge is still recalculated and re-validated server-side
+      // at checkout, this is only for display.
       couponDiscount: () => {
-        const code = get().couponCode;
-        if (!code || !COUPONS[code]) return 0;
-        const coupon = COUPONS[code];
+        const coupon = get().appliedCoupon;
         const subtotal = get().subtotal();
-        return coupon.type === "percent"
-          ? Math.round(subtotal * (coupon.value / 100))
-          : coupon.value;
+        if (!coupon) return 0;
+        if (subtotal < coupon.minPurchaseAmount) return 0;
+        let discount = coupon.discountType === "percentage"
+          ? (subtotal * coupon.discountValue) / 100
+          : coupon.discountValue;
+        if (coupon.maxDiscountAmount != null) discount = Math.min(discount, coupon.maxDiscountAmount);
+        return Math.min(discount, subtotal);
       },
 
       rewardPointsDiscount: () => get().rewardPointsToRedeem * REWARD_POINT_VALUE,
@@ -155,4 +169,4 @@ export const useCartStore = create(
   )
 );
 
-export { COUPONS, FREE_DELIVERY_THRESHOLD, DELIVERY_FLAT_RATE };
+export { FREE_DELIVERY_THRESHOLD, DELIVERY_FLAT_RATE };

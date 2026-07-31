@@ -13,13 +13,13 @@ export default function CouponInput() {
   const applyCoupon = useCartStore((s) => s.applyCoupon);
   const removeCoupon = useCartStore((s) => s.removeCoupon);
 
-  const handleApply = (e) => {
-    e.preventDefault();
-    if (!code.trim()) return;
-    const result = applyCoupon(code);
-    setMessage({ type: result.success ? "success" : "error", text: result.message });
-    if (result.success) setCode("");
-  };
+const handleApply = async (e) => {
+  e.preventDefault();
+  if (!code.trim()) return;
+  const result = await applyCoupon(code);
+  setMessage({ type: result.success ? "success" : "error", text: result.message });
+  if (result.success) setCode("");
+};
 
   return (
     <div className="border border-border rounded-[var(--radius-md)] bg-white shadow-sm p-4">
@@ -91,9 +91,7 @@ export default function CouponInput() {
         )}
       </AnimatePresence>
 
-      <p className="text-xs text-charcoal-600 mt-3">
-        Popular codes: <span className="font-medium">FRESH10</span>, <span className="font-medium">SAVE200</span>, <span className="font-medium">MANGO24</span>
-      </p>
+      
     </div>
   );
 }

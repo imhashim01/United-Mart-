@@ -1,17 +1,33 @@
+import { useEffect } from "react";
 import { Sparkles } from "lucide-react";
 import { useCartStore } from "../../../store/cartStore";
 import { formatPrice } from "../../../utils/formatCurrency";
+import * as rewardsApi from "../../rewards/api/rewardsApi";
 
 export default function RewardPointsRedeem() {
   const rewardPointsAvailable = useCartStore((s) => s.rewardPointsAvailable);
+  const setRewardPointsAvailable = useCartStore((s) => s.setRewardPointsAvailable);
   const rewardPointsToRedeem = useCartStore((s) => s.rewardPointsToRedeem);
   const setRewardPointsToRedeem = useCartStore((s) => s.setRewardPointsToRedeem);
   const subtotal = useCartStore((s) => s.subtotal());
   const pointsToEarn = useCartStore((s) => s.pointsToEarn());
 
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await rewardsApi.getUserRewards();
+        setRewardPointsAvailable(data.data?.currentBalance ?? 0);
+      } catch (error) {
+        console.error("Failed to fetch reward balance:", error?.response?.data || error.message);
+      }
+    })();
+  }, [setRewardPointsAvailable]);
+
   const maxRedeemable = Math.min(rewardPointsAvailable, Math.floor(subtotal * 0.5));
 
   if (rewardPointsAvailable === 0) return null;
+
+
 
   return (
     <div className="border border-border rounded-[var(--radius-md)] p-4">
