@@ -1,86 +1,35 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
+import { MapPin, Plus, Check, Home, Briefcase, X, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
-import { MapPin, Plus, Check, Home, Briefcase, X } from "lucide-react";
 import clsx from "clsx";
 import { useAuthStore } from "../../auth/hooks/useAuth";
-import { addMyAddress, getMe, updateMyAddress } from "../../auth/api/authApi";
+import * as addressApi from "../api/addressApi";
 
-const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
+const ADDRESS_ICONS = { Home: Home, Work: Briefcase, Other: MapPin };
 
-const normalizeAddress = (address) => ({
-  ...address,
-  id: address.id ?? address._id ?? `addr-${Date.now()}`,
-  area: address.area ?? address.state ?? "",
-  isDefault: !!address.isDefault,
-});
+function normalizeAddress(addr) {
+  return {
+    id: addr.id ?? addr._id,
+    label: addr.label,
+    line1: addr.line1,
+    line2: addr.line2,
+    area: addr.state, // this app's UI calls it "area"; backend calls it "state"
+    city: addr.city,
+    postalCode: addr.postalCode,
+    country: addr.country,
+    phone: addr.phone,
+  };
+}
 
 export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
-  const user = useAuthStore((state) => state.user);
-  const setUser = useAuthStore((state) => state.setUser);
-  const [addresses, setAddresses] = useState(
-    user?.addresses?.map(normalizeAddress) ?? []
-  );
+  const user = useAuthStore((s) => s.user);
+  const setUser = useAuthStore((s) => s.setUser);
+  const addresses = user?.addresses || [];
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
-
-  useEffect(() => {
-    if (user?.addresses) {
-      setAddresses(user.addresses.map(normalizeAddress));
-    }
-  }, [user?.addresses]);
-
-  // If the user exists but has no addresses loaded (possible stale auth state),
-  // refresh the profile from the server to ensure persisted addresses are available.
-  useEffect(() => {
-    let mounted = true;
-    const refreshUser = async () => {
-      if (!user) return;
-      if (Array.isArray(user.addresses) && user.addresses.length > 0) return;
-      try {
-        const resp = await getMe();
-        if (!mounted) return;
-        const fresh = resp.data.data;
-        if (fresh?.addresses) {
-          setAddresses(fresh.addresses.map(normalizeAddress));
-          // also update auth store so other components see the fresh addresses
-          useAuthStore.getState().setUser(fresh);
-        }
-      } catch (err) {
-        // ignore — keep current state
-      }
-    };
-    refreshUser();
-    return () => {
-      mounted = false;
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (addresses.length === 0) {
-      setShowForm(true);
-      return;
-    }
-
-    // If there's no selectedId, or the selectedId doesn't match any known
-    // address (stale value), pick the previously-marked default address.
-    const selectedExists = selectedId && addresses.some((a) => a.id === selectedId);
-    if ((!selectedId || !selectedExists) && addresses.length > 0) {
-      const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
-      onSelect(defaultAddr.id);
-      onAddressChange?.(defaultAddr);
-      setShowForm(false);
-      return;
-    }
-
-    if (selectedId) {
-      const selected = addresses.find((addr) => addr.id === selectedId);
-      if (selected) {
-        onAddressChange?.(selected);
-      }
-    }
-  }, [addresses, selectedId, onSelect, onAddressChange]);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
 
   const {
     register,
@@ -89,62 +38,63 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     formState: { errors },
   } = useForm();
 
-  const onSubmit = async (newAddress) => {
-    if (user) {
-      try {
-        let response;
-        if (editingId) {
-          response = await updateMyAddress(editingId, newAddress);
-        } else {
-          response = await addMyAddress(newAddress);
-        }
-        const updatedUser = response.data.data;
-        setUser(updatedUser);
-        const savedAddresses = (updatedUser.addresses ?? []).map(normalizeAddress);
-        setAddresses(savedAddresses);
-        const addedAddress =
-          savedAddresses.find(
-            (address) =>
-              address.line1 === newAddress.line1 &&
-              address.phone === newAddress.phone &&
-              address.city === newAddress.city
-          ) ?? savedAddresses[savedAddresses.length - 1];
-        onSelect(addedAddress?.id);
-        onAddressChange?.(addedAddress);
-        reset();
-        setShowForm(false);
-        setEditingId(null);
-        toast.success("Address saved successfully");
-        return;
-      } catch (error) {
-        const message = error?.response?.data?.message || "Failed to save address";
-        toast.error(message);
-        return;
-      }
+  // No saved addresses yet (new customer) → open the form immediately so
+  // they must fill in and save a real address before they can select one.
+  // Otherwise, auto-select their default (or first) saved address.
+  useEffect(() => {
+    if (addresses.length === 0) {
+      setShowForm(true);
+      return;
     }
+    const stillExists = addresses.some((a) => (a.id ?? a._id) === selectedId);
+    if (!selectedId || !stillExists) {
+      const defaultAddr = addresses.find((a) => a.isDefault) || addresses[0];
+      const id = defaultAddr.id ?? defaultAddr._id;
+      onSelect(id);
+      onAddressChange?.(normalizeAddress(defaultAddr));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addresses.length]);
 
-    const localAddress = { ...newAddress, id: `addr-${Date.now()}` };
-    setAddresses((prev) => [...prev, localAddress]);
-    onSelect(localAddress.id);
-    onAddressChange?.(localAddress);
-    reset();
-    setShowForm(false);
+  const onSubmit = async (data) => {
+    setSaving(true);
+    try {
+      const { data: response } = await addressApi.addAddress({
+        label: data.label,
+        line1: data.line1,
+        state: data.area,
+        city: data.city,
+        phone: data.phone,
+        isDefault: addresses.length === 0,
+      });
+      const updatedUser = response.data;
+      setUser(updatedUser);
+      const newAddress = updatedUser.addresses[updatedUser.addresses.length - 1];
+      const id = newAddress.id ?? newAddress._id;
+      onSelect(id);
+      onAddressChange?.(normalizeAddress(newAddress));
+      reset();
+      setShowForm(false);
+      toast.success("Address saved");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to save address");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const startEdit = (addr) => {
-    setEditingId(addr.id);
-    // preload the form
-    reset({
-      name: addr.name || "",
-      phone: addr.phone || "",
-      line1: addr.line1 || "",
-      area: addr.area || addr.state || "",
-      city: addr.city || "",
-      label: addr.label || "home",
-      postalCode: addr.postalCode || "",
-      country: addr.country || "",
-    });
-    setShowForm(true);
+  const handleDelete = async (addr) => {
+    const id = addr.id ?? addr._id;
+    if (!window.confirm("Remove this address?")) return;
+    setDeletingId(id);
+    try {
+      const { data: response } = await addressApi.deleteAddress(id);
+      setUser(response.data);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to remove address");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   return (
@@ -166,55 +116,60 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         )}
       </div>
 
+      {addresses.length === 0 && !showForm && (
+        <p className="text-sm text-charcoal-600 py-2">No saved addresses yet — add one to continue.</p>
+      )}
+
       <div className="flex flex-col gap-2.5">
         {addresses.map((addr) => {
+          const id = addr.id ?? addr._id;
           const Icon = ADDRESS_ICONS[addr.label] ?? MapPin;
-          const selected = selectedId === addr.id;
+          const selected = selectedId === id;
           return (
-            <button
-              key={addr.id}
-              type="button"
-              onClick={() => {
-                onSelect(addr.id);
-                onAddressChange?.(addr);
-              }}
-              className={clsx(
-                "text-left p-3.5 rounded-[var(--radius-sm)] border-2 transition-colors flex items-start gap-3",
-                selected ? "border-orchard-900 bg-linen-50" : "border-border hover:border-border-strong"
-              )}
-            >
-              <div
+            <div key={id} className="relative">
+              <button
+                type="button"
+                onClick={() => {
+                  onSelect(id);
+                  onAddressChange?.(normalizeAddress(addr));
+                }}
                 className={clsx(
-                  "h-9 w-9 rounded-full flex items-center justify-center shrink-0",
-                  selected ? "bg-orchard-900 text-white" : "bg-linen-50 text-charcoal-600"
+                  "w-full text-left p-3.5 rounded-[var(--radius-sm)] border-2 transition-colors flex items-start gap-3",
+                  selected ? "border-orchard-900 bg-linen-50" : "border-border hover:border-border-strong"
                 )}
               >
-                <Icon size={16} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="text-sm font-semibold text-charcoal-900 capitalize">{addr.label}</p>
-                  {addr.isDefault && (
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-charcoal-600 bg-linen-50 px-1.5 py-0.5 rounded">
-                      Default
-                    </span>
+                <div
+                  className={clsx(
+                    "h-9 w-9 rounded-full flex items-center justify-center shrink-0",
+                    selected ? "bg-orchard-900 text-white" : "bg-linen-50 text-charcoal-600"
                   )}
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      startEdit(addr);
-                    }}
-                    className="text-xs text-orchard-900 hover:text-orchard-700 ml-auto"
-                  >
-                    Edit
-                  </button>
+                >
+                  <Icon size={16} />
                 </div>
-                <p className="text-sm text-charcoal-900">{addr.name} · {addr.phone}</p>
-                <p className="text-xs text-charcoal-600">{addr.line1}, {addr.area}, {addr.city}</p>
-              </div>
-              {selected && <Check size={18} className="text-orchard-900 shrink-0" />}
-            </button>
+                <div className="flex-1 min-w-0 pr-6">
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-semibold text-charcoal-900">{addr.label}</p>
+                    {addr.isDefault && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-charcoal-600 bg-linen-50 px-1.5 py-0.5 rounded">
+                        Default
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-charcoal-900">{addr.phone}</p>
+                  <p className="text-xs text-charcoal-600">{addr.line1}, {addr.state}, {addr.city}</p>
+                </div>
+                {selected && <Check size={18} className="text-orchard-900 shrink-0" />}
+              </button>
+              <button
+                type="button"
+                aria-label="Remove address"
+                disabled={deletingId === id}
+                onClick={() => handleDelete(addr)}
+                className="absolute top-3.5 right-3 text-charcoal-300 hover:text-danger-600 transition-colors"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
           );
         })}
       </div>
@@ -232,30 +187,23 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
             <div className="pt-4 mt-3 border-t border-border flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold text-charcoal-900">New Address</p>
-                <button type="button" onClick={() => setShowForm(false)} aria-label="Cancel">
-                  <X size={16} className="text-charcoal-600" />
-                </button>
+                {addresses.length > 0 && (
+                  <button type="button" onClick={() => setShowForm(false)} aria-label="Cancel">
+                    <X size={16} className="text-charcoal-600" />
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Full Name" error={errors.name}>
-                  <input
-                    {...register("name", { required: "Required" })}
-                    className={fieldClass(errors.name)}
-                    placeholder="Full name"
-                  />
-                </Field>
-                <Field label="Phone" error={errors.phone}>
-                  <input
-                    {...register("phone", {
-                      required: "Required",
-                      pattern: { value: /^[0-9\s+-]{10,15}$/, message: "Invalid phone number" },
-                    })}
-                    className={fieldClass(errors.phone)}
-                    placeholder="03XX XXXXXXX"
-                  />
-                </Field>
-              </div>
+              <Field label="Phone" error={errors.phone}>
+                <input
+                  {...register("phone", {
+                    required: "Required",
+                    pattern: { value: /^[0-9\s+-]{10,15}$/, message: "Invalid phone number" },
+                  })}
+                  className={fieldClass(errors.phone)}
+                  placeholder="03XX XXXXXXX"
+                />
+              </Field>
 
               <Field label="Street Address" error={errors.line1}>
                 <input
@@ -283,18 +231,19 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
               </div>
 
               <Field label="Label">
-                <select {...register("label")} defaultValue="home" className={fieldClass(null)}>
-                  <option value="home">Home</option>
-                  <option value="work">Work</option>
-                  <option value="other">Other</option>
+                <select {...register("label")} defaultValue="Home" className={fieldClass(null)}>
+                  <option value="Home">Home</option>
+                  <option value="Work">Work</option>
+                  <option value="Other">Other</option>
                 </select>
               </Field>
 
               <button
                 type="submit"
-                className="h-10 rounded-[var(--radius-sm)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors"
+                disabled={saving}
+                className="h-10 rounded-[var(--radius-sm)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
               >
-                Save Address
+                {saving ? "Saving..." : "Save Address"}
               </button>
             </div>
           </motion.form>
