@@ -56,6 +56,11 @@ export default function CheckoutPage() {
 
     try {
       const payload = {
+        items: items.map((item) => ({
+    productId: item.productId,
+    ...(item.variantId ? { variantId: item.variantId } : {}),
+    quantity: item.qty,
+  })),
         shippingAddress: {
           label: selectedAddress.label || "home",
           line1: selectedAddress.line1 || "",

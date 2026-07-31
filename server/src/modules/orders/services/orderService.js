@@ -17,9 +17,10 @@ const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 50
 
 const canUseTransactions = () => mongoose.connection.readyState === 1 && !!process.env.MONGO_REPLICA_SET;
 
-export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote }) => {
-  const cart = await Cart.findOne({ user: userId });
-  if (!cart || cart.items.length === 0) throw ApiError.badRequest('Your cart is empty');
+export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items }) => {
+  if (!Array.isArray(items) || items.length === 0) {
+    throw ApiError.badRequest('Your cart is empty');
+  }
 
   const useTransaction = canUseTransactions();
   const session = useTransaction ? await mongoose.startSession() : null;
@@ -29,14 +30,16 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     const orderItems = [];
     let subtotal = 0;
 
-    for (const cartItem of cart.items) {
-      const product = await Product.findById(cartItem.product).session(session);
-      if (!product || !product.isActive) throw ApiError.badRequest(`Product "${cartItem.name}" is no longer available`);
+    for (const cartItem of items) {
+      const product = await Product.findById(cartItem.productId).session(session);
+      if (!product || !product.isActive) {
+        throw ApiError.badRequest('One of the items in your cart is no longer available');
+      }
 
       let variant = null;
       if (cartItem.variantId) {
         variant = product.variants.id(cartItem.variantId);
-        if (!variant) throw ApiError.badRequest(`Selected variant for "${cartItem.name}" is no longer available`);
+        if (!variant) throw ApiError.badRequest(`Selected variant for "${product.name}" is no longer available`);
       }
 
       const availableStock = variant ? variant.stock : product.stock;
@@ -45,12 +48,8 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       }
 
       const effectivePrice = variant
-        ? variant.discountPrice != null
-          ? variant.discountPrice
-          : variant.price
-        : product.discountPrice != null
-        ? product.discountPrice
-        : product.price;
+        ? variant.discountPrice != null ? variant.discountPrice : variant.price
+        : product.discountPrice != null ? product.discountPrice : product.price;
 
       const itemSubtotal = effectivePrice * cartItem.quantity;
       subtotal += itemSubtotal;
@@ -80,41 +79,45 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     let discountAmount = 0;
     let coupon = null;
     if (couponCode) {
-      coupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
-      if (!coupon || !coupon.isCurrentlyValid()) throw ApiError.badRequest('Invalid or expired coupon');
-      if (subtotal < coupon.minPurchaseAmount) {
-        throw ApiError.badRequest(`Minimum purchase of Rs.${coupon.minPurchaseAmount} required for this coupon`);
+      coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true }).session(session);
+      if (coupon) {
+        const meetsMinSpend = !coupon.minSpend || subtotal >= coupon.minSpend;
+        const withinUsageLimit = !coupon.maxUses || coupon.usedCount < coupon.maxUses;
+        const withinExpiry = !coupon.expiresAt || new Date(coupon.expiresAt) >= new Date();
+        if (meetsMinSpend && withinUsageLimit && withinExpiry) {
+          discountAmount = coupon.type === 'percent'
+            ? Math.round((subtotal * coupon.value) / 100)
+            : coupon.value;
+          discountAmount = Math.min(discountAmount, subtotal);
+        } else {
+          coupon = null;
+        }
       }
-      const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId);
-      if (userUsage && userUsage.count >= coupon.usageLimitPerUser) {
-        throw ApiError.badRequest('You have already used this coupon the maximum number of times');
-      }
-      discountAmount = coupon.calculateDiscount(subtotal);
     }
 
     const taxableAmount = subtotal - discountAmount;
-    const taxAmount = Math.round(taxableAmount * TAX_RATE * 100) / 100;
-    const shippingFee = taxableAmount >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
-    const totalAmount = Math.max(taxableAmount + taxAmount + shippingFee, 0);
+    const taxAmount = Math.round(taxableAmount * TAX_RATE);
+    const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
+    const totalAmount = taxableAmount + taxAmount + shippingFee;
 
     const [order] = await Order.create(
       [
         {
-          orderNumber: generateOrderNumber(),
           user: userId,
           items: orderItems,
           shippingAddress,
           billingAddress: billingAddress || shippingAddress,
           paymentMethod,
-          paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
           subtotal,
           discountAmount,
           taxAmount,
           shippingFee,
           totalAmount,
-          coupon: coupon?._id || null,
-          rewardPointsEarned: calculatePointsForAmount(totalAmount),
+          coupon: coupon?._id ?? null,
+          orderNumber: generateOrderNumber(),
           customerNote,
+          orderStatus: 'pending',
+          statusHistory: [{ status: 'pending', changedAt: new Date(), note: 'Order placed' }],
         },
       ],
       { session }
@@ -122,39 +125,22 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
 
     if (coupon) {
       coupon.usedCount += 1;
-      const usage = coupon.usersUsed.find((u) => u.user.toString() === userId);
-      if (usage) usage.count += 1;
-      else coupon.usersUsed.push({ user: userId, count: 1 });
       await coupon.save({ session });
     }
 
-    cart.items = [];
-    cart.coupon = null;
-    await cart.save({ session });
-
-    await createPaymentForOrder(
-      { orderId: order._id, userId, amount: totalAmount, method: paymentMethod },
-      session
-    );
+    await createPaymentForOrder({ order, session });
 
     if (session) {
       await session.commitTransaction();
       session.endSession();
     }
 
-    // Side effects that don't need to roll back the order itself.
     try {
-      await earnPoints({ userId, amount: totalAmount, orderId: order._id, description: `Earned from order ${order.orderNumber}` });
-      await createInvoiceForOrder(order._id);
-      await notifyUser({
-        userId,
-        title: 'Order placed successfully',
-        message: `Your order ${order.orderNumber} has been placed and is now pending confirmation.`,
-        type: 'order',
-        link: `/orders/${order._id}`,
-      });
+      await earnPoints(userId, calculatePointsForAmount(totalAmount));
+      await createInvoiceForOrder(order);
+      await notifyUser(userId, `Your order ${order.orderNumber} has been placed successfully.`);
     } catch (sideEffectError) {
-      console.error('Order post-processing error:', sideEffectError.message);
+      console.error('Post-order side effects failed:', sideEffectError.message);
     }
 
     return order;

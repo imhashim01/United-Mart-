@@ -11,7 +11,19 @@ const addressSchema = Joi.object({
   phone: Joi.string().trim().allow('', null),
 });
 
+// One line item as the client's local cart actually has it — server always
+// re-looks-up the product/variant to price it, so no price is trusted from here.
+const orderItemInputSchema = Joi.object({
+  productId: Joi.string().hex().length(24).required(),
+  variantId: Joi.string().hex().length(24).allow(null, ''),
+  quantity: Joi.number().integer().min(1).required(),
+});
+
 export const createOrderSchema = Joi.object({
+  // The frontend cart is local-only (never synced to a server Cart document),
+  // so the client sends its current items directly instead of the backend
+  // reading a Cart record that will never exist.
+  items: Joi.array().items(orderItemInputSchema).min(1).required(),
   shippingAddress: addressSchema.required(),
   billingAddress: addressSchema,
   paymentMethod: Joi.string().valid('cod', 'card', 'bank_transfer', 'jazzcash', 'easypaisa').required(),
