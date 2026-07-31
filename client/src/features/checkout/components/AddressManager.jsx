@@ -6,22 +6,15 @@ import clsx from "clsx";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
-const seedAddresses = [
-  {
-    id: "addr-1",
-    label: "home",
-    name: "Hashim Ahmed",
-    phone: "0300 1234567",
-    line1: "House 42, Station Road",
-    area: "Model Colony",
-    city: "Sukkur",
-    isDefault: true,
-  },
-];
-
 export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
-  const [addresses, setAddresses] = useState(seedAddresses);
+  const [addresses, setAddresses] = useState([]);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (addresses.length === 0) {
+      setShowForm(true);
+    }
+  }, [addresses.length]);
 
   const {
     register,
@@ -29,15 +22,6 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     reset,
     formState: { errors },
   } = useForm();
-
-  // Auto-select default/first address on mount
-  useEffect(() => {
-    if (!selectedId && addresses.length > 0) {
-      onSelect(addresses[0].id);
-      onAddressChange?.(addresses[0]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const onSubmit = (data) => {
     const newAddress = {
