@@ -1,20 +1,38 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
+import toast from "react-hot-toast";
 import { MapPin, Plus, Check, Home, Briefcase, X } from "lucide-react";
 import clsx from "clsx";
+import { useAuthStore } from "../../auth/hooks/useAuth";
+import { addMyAddress } from "../../auth/api/authApi";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
 export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
-  const [addresses, setAddresses] = useState([]);
+  const user = useAuthStore((state) => state.user);
+  const setUser = useAuthStore((state) => state.setUser);
+  const [addresses, setAddresses] = useState(user?.addresses ?? []);
   const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (user?.addresses) {
+      setAddresses(user.addresses);
+    }
+  }, [user?.addresses]);
 
   useEffect(() => {
     if (addresses.length === 0) {
       setShowForm(true);
+      return;
     }
-  }, [addresses.length]);
+
+    if (!selectedId && addresses.length > 0) {
+      onSelect(addresses[0].id);
+      onAddressChange?.(addresses[0]);
+      setShowForm(false);
+    }
+  }, [addresses, selectedId, onSelect, onAddressChange]);
 
   const {
     register,
@@ -23,20 +41,45 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     formState: { errors },
   } = useForm();
 
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
     const newAddress = {
-      id: `addr-${Date.now()}`,
       label: data.label,
       name: data.name,
       phone: data.phone,
       line1: data.line1,
       area: data.area,
       city: data.city,
+      state: data.state,
+      postalCode: data.postalCode,
+      country: data.country || "Pakistan",
       isDefault: addresses.length === 0,
     };
-    setAddresses((prev) => [...prev, newAddress]);
-    onSelect(newAddress.id);
-    onAddressChange?.(newAddress);
+
+    if (user) {
+      try {
+        const response = await addMyAddress(newAddress);
+        const updatedUser = response.data.data;
+        setUser(updatedUser);
+        const savedAddresses = updatedUser.addresses ?? [];
+        setAddresses(savedAddresses);
+        const addedAddress = savedAddresses.find((address) => address.line1 === newAddress.line1 && address.phone === newAddress.phone && address.city === newAddress.city) ?? savedAddresses[savedAddresses.length - 1];
+        onSelect(addedAddress?.id);
+        onAddressChange?.(addedAddress);
+        reset();
+        setShowForm(false);
+        toast.success('Address saved successfully');
+        return;
+      } catch (error) {
+        const message = error?.response?.data?.message || 'Failed to save address';
+        toast.error(message);
+        return;
+      }
+    }
+
+    const localAddress = { ...newAddress, id: `addr-${Date.now()}` };
+    setAddresses((prev) => [...prev, localAddress]);
+    onSelect(localAddress.id);
+    onAddressChange?.(localAddress);
     reset();
     setShowForm(false);
   };
