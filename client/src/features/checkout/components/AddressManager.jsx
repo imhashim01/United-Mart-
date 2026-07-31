@@ -176,12 +176,11 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
 
       <AnimatePresence>
         {showForm && (
-          <motion.form
+          <motion.div
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.2 }}
-            onSubmit={handleSubmit(onSubmit)}
             className="overflow-hidden"
           >
             <div className="pt-4 mt-3 border-t border-border flex flex-col gap-3">
@@ -239,14 +238,15 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
               </Field>
 
               <button
-                type="submit"
+                type="button"
+                onClick={handleSubmit(onSubmit)}
                 disabled={saving}
                 className="h-10 rounded-[var(--radius-sm)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
               >
                 {saving ? "Saving..." : "Save Address"}
               </button>
             </div>
-          </motion.form>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>
