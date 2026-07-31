@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
-import { MapPin, Plus, Check, Home, Briefcase, X, Trash2 } from "lucide-react";
+import { MapPin, Plus, Check, Home, Briefcase, X, Trash2, Pencil } from "lucide-react";
 import toast from "react-hot-toast";
 import clsx from "clsx";
 import { useAuthStore } from "../../auth/hooks/useAuth";
@@ -30,6 +30,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [editingId, setEditingId] = useState(null);
 
   const {
     register,
@@ -56,26 +57,61 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [addresses.length]);
 
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingId(null);
+    reset();
+  };
+
+  const startAdd = () => {
+    setEditingId(null);
+    reset({ phone: "", line1: "", area: "", city: "", label: "Home" });
+    setShowForm(true);
+  };
+
+  const startEdit = (addr) => {
+    setEditingId(addr.id ?? addr._id);
+    reset({
+      phone: addr.phone || "",
+      line1: addr.line1 || "",
+      area: addr.state || "",
+      city: addr.city || "",
+      label: addr.label || "Home",
+    });
+    setShowForm(true);
+  };
+
   const onSubmit = async (data) => {
     setSaving(true);
     try {
-      const { data: response } = await addressApi.addAddress({
+      const payload = {
         label: data.label,
         line1: data.line1,
         state: data.area,
         city: data.city,
         phone: data.phone,
-        isDefault: addresses.length === 0,
-      });
+      };
+
+      let response;
+      if (editingId) {
+        response = await addressApi.updateAddress(editingId, payload);
+      } else {
+        response = await addressApi.addAddress({ ...payload, isDefault: addresses.length === 0 });
+      }
+
       const updatedUser = response.data;
       setUser(updatedUser);
-      const newAddress = updatedUser.addresses[updatedUser.addresses.length - 1];
-      const id = newAddress.id ?? newAddress._id;
+
+      const savedAddress = editingId
+        ? updatedUser.addresses.find((a) => (a.id ?? a._id) === editingId)
+        : updatedUser.addresses[updatedUser.addresses.length - 1];
+
+      const id = savedAddress.id ?? savedAddress._id;
       onSelect(id);
-      onAddressChange?.(normalizeAddress(newAddress));
-      reset();
-      setShowForm(false);
-      toast.success("Address saved");
+      onAddressChange?.(normalizeAddress(savedAddress));
+
+      toast.success(editingId ? "Address updated" : "Address saved");
+      closeForm();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Failed to save address");
     } finally {
@@ -107,7 +143,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         {!showForm && (
           <button
             type="button"
-            onClick={() => setShowForm(true)}
+            onClick={startAdd}
             className="flex items-center gap-1 text-xs font-semibold text-orchard-900 hover:text-mango-500 transition-colors"
           >
             <Plus size={14} />
@@ -146,7 +182,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
                 >
                   <Icon size={16} />
                 </div>
-                <div className="flex-1 min-w-0 pr-6">
+                <div className="flex-1 min-w-0 pr-14">
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-charcoal-900">{addr.label}</p>
                     {addr.isDefault && (
@@ -160,15 +196,31 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
                 </div>
                 {selected && <Check size={18} className="text-orchard-900 shrink-0" />}
               </button>
-              <button
-                type="button"
-                aria-label="Remove address"
-                disabled={deletingId === id}
-                onClick={() => handleDelete(addr)}
-                className="absolute top-3.5 right-3 text-charcoal-300 hover:text-danger-600 transition-colors"
-              >
-                <Trash2 size={14} />
-              </button>
+              <div className="absolute top-3.5 right-3 flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Edit address"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    startEdit(addr);
+                  }}
+                  className="text-charcoal-300 hover:text-orchard-700 transition-colors"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove address"
+                  disabled={deletingId === id}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(addr);
+                  }}
+                  className="text-charcoal-300 hover:text-danger-600 transition-colors"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
             </div>
           );
         })}
@@ -185,9 +237,11 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
           >
             <div className="pt-4 mt-3 border-t border-border flex flex-col gap-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-semibold text-charcoal-900">New Address</p>
-                {addresses.length > 0 && (
-                  <button type="button" onClick={() => setShowForm(false)} aria-label="Cancel">
+                <p className="text-sm font-semibold text-charcoal-900">
+                  {editingId ? "Edit Address" : "New Address"}
+                </p>
+                {(addresses.length > 0 || editingId) && (
+                  <button type="button" onClick={closeForm} aria-label="Cancel">
                     <X size={16} className="text-charcoal-600" />
                   </button>
                 )}
@@ -243,7 +297,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
                 disabled={saving}
                 className="h-10 rounded-[var(--radius-sm)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
               >
-                {saving ? "Saving..." : "Save Address"}
+                {saving ? "Saving..." : editingId ? "Update Address" : "Save Address"}
               </button>
             </div>
           </motion.div>
