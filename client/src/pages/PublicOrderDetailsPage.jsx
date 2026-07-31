@@ -3,22 +3,54 @@ import { useParams, Link, Navigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
-import { getPersistedOrderById, subscribeOrderStorageUpdates } from "../utils/orderStorage";
+import { getPersistedOrderById } from "../utils/orderStorage";
+import * as ordersApi from "../features/admin/orders/api/ordersApi";
 import { formatPrice, formatDate } from "../utils/formatCurrency";
 
 export default function PublicOrderDetailsPage() {
   const { id } = useParams();
-  const [order, setOrder] = useState(() => getPersistedOrderById(id));
+  const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const handleUpdate = () => setOrder(getPersistedOrderById(id));
-    const unsubscribe = subscribeOrderStorageUpdates(handleUpdate);
-    return unsubscribe;
+    let mounted = true;
+
+    const fetchOrder = async () => {
+      try {
+        const { data } = await ordersApi.getOrder(id);
+        if (!mounted) return;
+        setOrder(data.data);
+      } catch (err) {
+        // fallback to persisted local order (guest flow)
+        const persisted = getPersistedOrderById(id);
+        if (persisted) setOrder(persisted);
+        console.error('Failed to fetch order from API, using persisted fallback:', err?.response || err.message);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    };
+
+    fetchOrder();
+    const interval = setInterval(fetchOrder, 10000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
   }, [id]);
 
-  if (!order) {
-    return <Navigate to="/orders" replace />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-linen-50 flex flex-col">
+        <Header />
+        <main className="flex-1 max-w-5xl mx-auto w-full px-4 md:px-6 py-8">
+          <div className="min-h-[200px] flex items-center justify-center">Loading order...</div>
+        </main>
+        <Footer />
+      </div>
+    );
   }
+
+  if (!order) return <Navigate to="/orders" replace />;
 
   return (
     <div className="min-h-screen bg-linen-50 flex flex-col">

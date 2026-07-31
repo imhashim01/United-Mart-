@@ -17,6 +17,7 @@ import { fadeUp } from "../../animations/variants";
 export default function OrderDetailsPage() {
   const { id } = useParams();
   const [order, setOrder] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -29,7 +30,21 @@ export default function OrderDetailsPage() {
     })();
   }, [id]);
 
-  if (!order) return <Navigate to="/admin/orders" replace />;
+  useEffect(() => {
+    // manage loading state around the fetch above
+    if (order === null) setLoading(true);
+    else setLoading(false);
+  }, [order]);
+
+  if (loading) {
+    return (
+      <AdminLayout title={`Order ${id}`}>
+        <div className="min-h-[200px] flex items-center justify-center">Loading order...</div>
+      </AdminLayout>
+    );
+  }
+
+  if (!order && !loading) return <Navigate to="/admin/orders" replace />;
 
   const handleStatusChange = async (newStatus) => {
     try {
