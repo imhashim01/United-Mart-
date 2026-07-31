@@ -9,15 +9,23 @@ import { addMyAddress } from "../../auth/api/authApi";
 
 const ADDRESS_ICONS = { home: Home, work: Briefcase, other: MapPin };
 
+const normalizeAddress = (address) => ({
+  ...address,
+  id: address.id ?? address._id ?? `addr-${Date.now()}`,
+  area: address.area ?? address.state ?? "",
+});
+
 export default function AddressManager({ selectedId, onSelect, onAddressChange }) {
   const user = useAuthStore((state) => state.user);
   const setUser = useAuthStore((state) => state.setUser);
-  const [addresses, setAddresses] = useState(user?.addresses ?? []);
+  const [addresses, setAddresses] = useState(
+    user?.addresses?.map(normalizeAddress) ?? []
+  );
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     if (user?.addresses) {
-      setAddresses(user.addresses);
+      setAddresses(user.addresses.map(normalizeAddress));
     }
   }, [user?.addresses]);
 
@@ -31,6 +39,14 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
       onSelect(addresses[0].id);
       onAddressChange?.(addresses[0]);
       setShowForm(false);
+      return;
+    }
+
+    if (selectedId) {
+      const selected = addresses.find((addr) => addr.id === selectedId);
+      if (selected) {
+        onAddressChange?.(selected);
+      }
     }
   }, [addresses, selectedId, onSelect, onAddressChange]);
 
@@ -47,9 +63,8 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
       name: data.name,
       phone: data.phone,
       line1: data.line1,
-      area: data.area,
       city: data.city,
-      state: data.state,
+      state: data.area,
       postalCode: data.postalCode,
       country: data.country || "Pakistan",
       isDefault: addresses.length === 0,
@@ -60,9 +75,14 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         const response = await addMyAddress(newAddress);
         const updatedUser = response.data.data;
         setUser(updatedUser);
-        const savedAddresses = updatedUser.addresses ?? [];
+        const savedAddresses = (updatedUser.addresses ?? []).map(normalizeAddress);
         setAddresses(savedAddresses);
-        const addedAddress = savedAddresses.find((address) => address.line1 === newAddress.line1 && address.phone === newAddress.phone && address.city === newAddress.city) ?? savedAddresses[savedAddresses.length - 1];
+        const addedAddress = savedAddresses.find(
+          (address) =>
+            address.line1 === newAddress.line1 &&
+            address.phone === newAddress.phone &&
+            address.city === newAddress.city
+        ) ?? savedAddresses[savedAddresses.length - 1];
         onSelect(addedAddress?.id);
         onAddressChange?.(addedAddress);
         reset();

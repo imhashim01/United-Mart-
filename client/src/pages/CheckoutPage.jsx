@@ -37,7 +37,7 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const methods = useForm({ mode: "onBlur" });
-  const { handleSubmit, setError, clearErrors } = methods;
+  const { handleSubmit, setError, clearErrors, formState: { errors } } = methods;
 
   if (items.length === 0 && !orderPlaced) {
     return <Navigate to="/shop" replace />;
@@ -68,7 +68,7 @@ export default function CheckoutPage() {
           line1: selectedAddress.line1 || "",
           line2: selectedAddress.line2 || "",
           city: selectedAddress.city || "",
-          state: selectedAddress.area || "",
+          state: selectedAddress.area || selectedAddress.state || "",
           postalCode: selectedAddress.postalCode || "",
           country: selectedAddress.country || "",
           phone: selectedAddress.phone || user?.phone || "",
@@ -78,7 +78,7 @@ export default function CheckoutPage() {
           line1: selectedAddress.line1 || "",
           line2: selectedAddress.line2 || "",
           city: selectedAddress.city || "",
-          state: selectedAddress.area || "",
+          state: selectedAddress.area || selectedAddress.state || "",
           postalCode: selectedAddress.postalCode || "",
           country: selectedAddress.country || "",
           phone: selectedAddress.phone || user?.phone || "",
@@ -165,6 +165,9 @@ export default function CheckoutPage() {
             {/* Left: address + payment */}
             <div className="flex flex-col gap-5">
               <AddressManager selectedId={selectedAddressId} onSelect={setSelectedAddressId} onAddressChange={setSelectedAddress} />
+              {errors.address && (
+                <p className="text-sm text-danger-600">{errors.address.message}</p>
+              )}
               <PaymentMethodSelector selected={paymentMethod} onSelect={setPaymentMethod} />
               <div className="border border-border rounded-[var(--radius-md)] p-4 bg-white shadow-sm">
                 <div className="flex items-center justify-between mb-3">
