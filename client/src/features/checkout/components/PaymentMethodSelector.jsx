@@ -24,7 +24,7 @@ const METHODS = [
     icon: Smartphone,
   },
   {
-    id: "bank",
+    id: "bank_transfer",
     label: "Bank Transfer",
     description: "Transfer directly to our bank account",
     icon: Landmark,
@@ -176,7 +176,7 @@ export default function PaymentMethodSelector({ selected, onSelect }) {
                   </motion.div>
                 )}
 
-                {isSelected && method.id === "bank" && (
+                {isSelected && method.id === "bank_transfer" && (
                   <motion.div
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: "auto", opacity: 1 }}
