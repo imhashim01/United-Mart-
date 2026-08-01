@@ -76,24 +76,20 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       await product.save({ session });
     }
 
-    let discountAmount = 0;
-    let coupon = null;
-    if (couponCode) {
-      coupon = await Coupon.findOne({ code: couponCode.toUpperCase(), isActive: true }).session(session);
-      if (coupon) {
-        const meetsMinSpend = !coupon.minSpend || subtotal >= coupon.minSpend;
-        const withinUsageLimit = !coupon.maxUses || coupon.usedCount < coupon.maxUses;
-        const withinExpiry = !coupon.expiresAt || new Date(coupon.expiresAt) >= new Date();
-        if (meetsMinSpend && withinUsageLimit && withinExpiry) {
-          discountAmount = coupon.type === 'percent'
-            ? Math.round((subtotal * coupon.value) / 100)
-            : coupon.value;
-          discountAmount = Math.min(discountAmount, subtotal);
-        } else {
-          coupon = null;
-        }
-      }
+let discountAmount = 0;
+let coupon = null;
+if (couponCode) {
+  const foundCoupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
+  if (foundCoupon && foundCoupon.isCurrentlyValid()) {
+    const userUsage = foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString());
+    const withinPerUserLimit = !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
+    const calculatedDiscount = foundCoupon.calculateDiscount(subtotal);
+    if (withinPerUserLimit && calculatedDiscount > 0) {
+      discountAmount = calculatedDiscount;
+      coupon = foundCoupon;
     }
+  }
+}
 
     // Reward points redemption: 1 point = Rs 1, capped at 50% of subtotal —
     // mirrors the same limit the checkout UI enforces, recalculated
@@ -132,10 +128,13 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       { session }
     );
 
-    if (coupon) {
-      coupon.usedCount += 1;
-      await coupon.save({ session });
-    }
+  if (coupon) {
+  coupon.usedCount += 1;
+  const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId.toString());
+  if (userUsage) userUsage.count += 1;
+  else coupon.usersUsed.push({ user: userId, count: 1 });
+  await coupon.save({ session });
+}
 
     // Deduct redeemed points inside the same transaction as the order —
     // if the user's balance check fails here, the whole order rolls back.

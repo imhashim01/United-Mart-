@@ -41,10 +41,6 @@ export const useAuthStore = create(
         set({ user: null, token: null, error: null });
       },
 
-      // ...register, login, logout, verifyEmail, forgotPassword, resetPassword, hydrate — all unchanged
-
-      setUser: (user) => set({ user }),
-
       register: async (payload) => {
         set({ loading: true, error: null });
         try {
