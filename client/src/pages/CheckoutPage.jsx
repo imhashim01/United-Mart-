@@ -27,6 +27,8 @@ export default function CheckoutPage() {
   const couponCode = useCartStore((s) => s.couponCode);
   const user = useAuthStore((s) => s.user);
   const rewardPointsToRedeem = useCartStore((s) => s.rewardPointsToRedeem);
+  const meetsMinimumOrder = useCartStore((s) => s.meetsMinimumOrder());
+const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
 
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -51,7 +53,10 @@ export default function CheckoutPage() {
       });
       return;
     }
-
+    if (!meetsMinimumOrder) {
+  toast.error(`Minimum order amount is ${formatPrice(minimumOrderAmount)}`);
+  return;
+}
     clearErrors("address");
     setSubmitting(true);
 

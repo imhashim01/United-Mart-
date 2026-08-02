@@ -1,11 +1,12 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import * as couponsApi from "../features/checkout/api/couponsApi";
+import { getSettings } from "../data/settingsData";
 
-const DELIVERY_FLAT_RATE = 150;
-const FREE_DELIVERY_THRESHOLD = 3000;
 const REWARD_POINT_VALUE = 1; // 1 point = Rs 1 when redeemed
 const POINTS_EARNED_PER_100 = 1; // 1 point per Rs 100 spent
+
+
 
 export const useCartStore = create(
   persist(
@@ -142,8 +143,12 @@ export const useCartStore = create(
       deliveryCharge: () => {
         const subtotal = get().subtotal();
         if (subtotal === 0) return 0;
-        return subtotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FLAT_RATE;
+        return subtotal >= getSettings().freeDeliveryThreshold ? 0 : getSettings().deliveryFlatRate;
       },
+
+      minimumOrderAmount: () => getSettings().minimumOrderAmount,
+
+      meetsMinimumOrder: () => get().subtotal() >= getSettings().minimumOrderAmount,
 
       total: () => {
         const s = get();
@@ -158,15 +163,14 @@ export const useCartStore = create(
 
       freeDeliveryProgress: () => {
         const subtotal = get().subtotal();
+        const threshold = getSettings().freeDeliveryThreshold;
         return {
-          remaining: Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal),
-          reached: subtotal >= FREE_DELIVERY_THRESHOLD,
-          threshold: FREE_DELIVERY_THRESHOLD,
+          remaining: Math.max(0, threshold - subtotal),
+          reached: subtotal >= threshold,
+          threshold,
         };
       },
     }),
     { name: "united-mart-cart" }
   )
 );
-
-export { FREE_DELIVERY_THRESHOLD, DELIVERY_FLAT_RATE };

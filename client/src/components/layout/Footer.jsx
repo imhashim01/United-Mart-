@@ -44,18 +44,18 @@ export default function Footer() {
 
   useEffect(() => {
     setSettings(getPersistedSettings({
-      storeName: "United Mart Sukkur",
-      supportEmail: "unitedmartsukkur@gmail.com",
-      supportPhone: "+92 333 7111954",
-      address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
-    }));
-    // Load persisted categories (if admin edited them) and convert to footer links
-    const cats = getCategoryObjects();
-    if (Array.isArray(cats) && cats.length > 0) {
-      setCategoryLinks(
-        cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
-      );
-    }
+  storeName: "United Mart Sukkur",
+  supportEmail: "unitedmartsukkur@gmail.com",
+  supportPhone: "+92 333 7111954",
+  address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
+}));
+
+const cats = getCategoryObjects();
+if (Array.isArray(cats) && cats.length > 0) {
+  setCategoryLinks(
+    cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
+  );
+}
   }, []);
 
   const storeName = settings?.storeName ?? "United Mart Sukkur";

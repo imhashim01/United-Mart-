@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
-import { getPersistedSettings, persistSettings } from "../../utils/persistedData";
+import * as settingsApi from "../../features/admin/settings/api/settingsApi";
+import { refreshSettings } from "../../data/settingsData";
 
 function SettingsCard({ title, subtitle, children }) {
   return (
@@ -25,28 +26,60 @@ function Field({ label, children }) {
 const inputClass =
   "w-full h-10 px-3 rounded-[var(--radius-sm)] border border-border-strong text-sm focus:outline-none focus:ring-[3px] focus:ring-orchard-900/10 focus:border-orchard-700";
 
-const defaultSettings = {
-  storeName: "United Mart Sukkur",
-  supportEmail: "support@unitedmartsukkur.pk",
-  supportPhone: "+92 300 1234567",
-  address: "Station Road, Sukkur, Sindh, Pakistan",
-  deliveryFlatRate: 150,
-  freeDeliveryThreshold: 3000,
-  orderCutoffTime: "16:00",
-  emailNotifications: true,
-  smsNotifications: false,
-};
-
 export default function SettingsPage() {
-  const [form, setForm] = useState(() => getPersistedSettings(defaultSettings));
+  const [form, setForm] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data } = await settingsApi.getSettings();
+        setForm(data.data);
+      } catch (error) {
+        toast.error(error?.response?.data?.message || "Failed to load settings");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const update = (key, value) => setForm((f) => ({ ...f, [key]: value }));
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    persistSettings(form);
-    toast.success("Settings saved");
+    setSaving(true);
+    try {
+      const payload = {
+        storeName: form.storeName,
+        supportEmail: form.supportEmail,
+        supportPhone: form.supportPhone,
+        address: form.address,
+        deliveryFlatRate: Number(form.deliveryFlatRate),
+        freeDeliveryThreshold: Number(form.freeDeliveryThreshold),
+        minimumOrderAmount: Number(form.minimumOrderAmount),
+        orderCutoffTime: form.orderCutoffTime,
+        emailNotifications: form.emailNotifications,
+        smsNotifications: form.smsNotifications,
+      };
+      const { data } = await settingsApi.updateSettings(payload);
+      setForm(data.data);
+      await refreshSettings(); // so this device's cart/checkout picks up the change immediately
+      toast.success("Settings saved");
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to save settings");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading || !form) {
+    return (
+      <AdminLayout title="Website Settings">
+        <p className="text-sm text-charcoal-600">Loading settings...</p>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Website Settings">
@@ -68,15 +101,18 @@ export default function SettingsPage() {
           </Field>
         </SettingsCard>
 
-        <SettingsCard title="Delivery Settings" subtitle="Controls checkout delivery pricing and cutoff time">
+        <SettingsCard title="Delivery Settings" subtitle="Controls checkout delivery pricing, cutoff time, and the minimum order amount">
           <div className="grid sm:grid-cols-2 gap-4">
             <Field label="Flat Delivery Rate (Rs)">
-              <input type="number" className={inputClass} value={form.deliveryFlatRate} onChange={(e) => update("deliveryFlatRate", e.target.value)} />
+              <input type="number" min="0" className={inputClass} value={form.deliveryFlatRate} onChange={(e) => update("deliveryFlatRate", e.target.value)} />
             </Field>
             <Field label="Free Delivery Threshold (Rs)">
-              <input type="number" className={inputClass} value={form.freeDeliveryThreshold} onChange={(e) => update("freeDeliveryThreshold", e.target.value)} />
+              <input type="number" min="0" className={inputClass} value={form.freeDeliveryThreshold} onChange={(e) => update("freeDeliveryThreshold", e.target.value)} />
             </Field>
           </div>
+          <Field label="Minimum Order Amount (Rs)">
+            <input type="number" min="0" className={inputClass} value={form.minimumOrderAmount} onChange={(e) => update("minimumOrderAmount", e.target.value)} />
+          </Field>
           <Field label="Same-Day Order Cutoff Time">
             <input type="time" className={inputClass} value={form.orderCutoffTime} onChange={(e) => update("orderCutoffTime", e.target.value)} />
           </Field>
@@ -93,8 +129,8 @@ export default function SettingsPage() {
           </label>
         </SettingsCard>
 
-        <button type="submit" className="h-11 px-6 rounded-[var(--radius-md)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors">
-          Save Changes
+        <button type="submit" disabled={saving} className="h-11 px-6 rounded-[var(--radius-md)] bg-orchard-900 text-white text-sm font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60">
+          {saving ? "Saving..." : "Save Changes"}
         </button>
       </form>
     </AdminLayout>

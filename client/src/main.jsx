@@ -6,6 +6,7 @@ import App from "./App.jsx";
 import "./styles/index.css";
 import { useAuthStore } from "./features/auth/hooks/useAuth.js";
 import { loadProducts, loadCategories, loadBrands } from "./data/productsData.js";
+import { loadSettings } from "./data/settingsData.js";
 
 function AuthBootstrap() {
   const hydrate = useAuthStore((state) => state.hydrate);
@@ -16,9 +17,9 @@ function AuthBootstrap() {
     // Fetch the live catalog from the real backend before rendering pages
     // that read it — this is what keeps every device/browser in sync,
     // instead of each one showing its own stale local copy.
-    Promise.all([loadProducts(), loadCategories(), loadBrands()]).finally(() => {
-      setCatalogReady(true);
-    });
+    Promise.all([loadProducts(), loadCategories(), loadBrands(), loadSettings()]).finally(() => {
+  setCatalogReady(true);
+});
   }, [hydrate]);
 
   if (!catalogReady) {

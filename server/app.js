@@ -23,6 +23,7 @@ import invoiceRoutes from './src/modules/invoices/routes/invoiceRoutes.js';
 import reviewRoutes from './src/modules/reviews/routes/reviewRoutes.js';
 import notificationRoutes from './src/modules/notifications/routes/notificationRoutes.js';
 import reportRoutes from './src/modules/reports/routes/reportRoutes.js';
+import settingRoutes from './src/modules/settings/routes/settingRoutes.js';
 
 import { errorHandler, notFound } from './src/middlewares/errorHandler.js';
 
@@ -70,6 +71,7 @@ export const createApp = () => {
   app.use(`${API_PREFIX}/reviews`, reviewRoutes);
   app.use(`${API_PREFIX}/notifications`, notificationRoutes);
   app.use(`${API_PREFIX}/reports`, reportRoutes);
+  app.use(`${API_PREFIX}/settings`, settingRoutes);
 
   app.use(notFound);
   app.use(errorHandler);

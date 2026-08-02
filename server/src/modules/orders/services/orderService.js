@@ -10,8 +10,11 @@ import { earnPoints, calculatePointsForAmount, redeemPointsForOrder } from '../.
 import { createInvoiceForOrder } from '../../invoices/services/invoiceService.js';
 import { createPaymentForOrder } from '../../payments/services/paymentService.js';
 import { notifyUser } from '../../notifications/services/notificationService.js';
+import { getSettings } from '../../settings/services/settingService.js';
 
 const TAX_RATE = Number(process.env.TAX_RATE || 0);
+
+const canUseTransactions = () => mongoose.connection.readyState === 1 && !!process.env.MONGO_REPLICA_SET;
 const FLAT_SHIPPING_FEE = Number(process.env.SHIPPING_FEE || 200);
 const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 5000);
 
@@ -21,6 +24,11 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
   if (!Array.isArray(items) || items.length === 0) {
     throw ApiError.badRequest('Your cart is empty');
   }
+
+  // Delivery pricing and the minimum order rule are admin-configurable —
+  // fetched once per order so a settings change takes effect immediately
+  // on the next order, with no redeploy needed.
+  const settings = await getSettings();
 
   const useTransaction = canUseTransactions();
   const session = useTransaction ? await mongoose.startSession() : null;
@@ -76,20 +84,26 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
       await product.save({ session });
     }
 
-let discountAmount = 0;
-let coupon = null;
-if (couponCode) {
-  const foundCoupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
-  if (foundCoupon && foundCoupon.isCurrentlyValid()) {
-    const userUsage = foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString());
-    const withinPerUserLimit = !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
-    const calculatedDiscount = foundCoupon.calculateDiscount(subtotal);
-    if (withinPerUserLimit && calculatedDiscount > 0) {
-      discountAmount = calculatedDiscount;
-      coupon = foundCoupon;
+    // Enforce the admin-configured minimum order amount. Checked against
+    // the real, server-computed subtotal — not anything the client sends.
+    if (subtotal < settings.minimumOrderAmount) {
+      throw ApiError.badRequest(`Minimum order amount is Rs ${settings.minimumOrderAmount}. Add more items to continue.`);
     }
-  }
-}
+
+    let discountAmount = 0;
+    let coupon = null;
+    if (couponCode) {
+      const foundCoupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
+      if (foundCoupon && foundCoupon.isCurrentlyValid()) {
+        const userUsage = foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString());
+        const withinPerUserLimit = !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
+        const calculatedDiscount = foundCoupon.calculateDiscount(subtotal);
+        if (withinPerUserLimit && calculatedDiscount > 0) {
+          discountAmount = calculatedDiscount;
+          coupon = foundCoupon;
+        }
+      }
+    }
 
     // Reward points redemption: 1 point = Rs 1, capped at 50% of subtotal —
     // mirrors the same limit the checkout UI enforces, recalculated
@@ -100,7 +114,7 @@ if (couponCode) {
 
     const taxableAmount = subtotal - discountAmount;
     const taxAmount = Math.round(taxableAmount * TAX_RATE);
-    const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : FLAT_SHIPPING_FEE;
+    const shippingFee = subtotal >= settings.freeDeliveryThreshold ? 0 : settings.deliveryFlatRate;
     const totalAmount = Math.max(0, taxableAmount + taxAmount + shippingFee - rewardPointsDiscount);
 
     const [order] = await Order.create(
@@ -128,16 +142,14 @@ if (couponCode) {
       { session }
     );
 
-  if (coupon) {
-  coupon.usedCount += 1;
-  const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId.toString());
-  if (userUsage) userUsage.count += 1;
-  else coupon.usersUsed.push({ user: userId, count: 1 });
-  await coupon.save({ session });
-}
+    if (coupon) {
+      coupon.usedCount += 1;
+      const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId.toString());
+      if (userUsage) userUsage.count += 1;
+      else coupon.usersUsed.push({ user: userId, count: 1 });
+      await coupon.save({ session });
+    }
 
-    // Deduct redeemed points inside the same transaction as the order —
-    // if the user's balance check fails here, the whole order rolls back.
     if (redeemablePoints > 0) {
       await redeemPointsForOrder(
         {
@@ -186,27 +198,6 @@ if (couponCode) {
     }
     throw error;
   }
-};
-
-export const listOrders = async (queryString, filter = {}) => {
-  const total = await Order.countDocuments({ ...filter, ...new ApiFeatures(Order.find(), queryString).filter().query.getFilter() });
-  const features = new ApiFeatures(Order.find(filter).populate('user', 'name email'), queryString)
-    .filter()
-    .sort()
-    .limitFields()
-    .paginate();
-
-  const orders = await features.query;
-  return { orders, meta: buildPaginationMeta({ ...features.pagination, total }) };
-};
-
-export const getOrderById = async (id, { userId, isAdmin } = {}) => {
-  const order = await Order.findById(id).populate('user', 'name email').populate('coupon', 'code discountType discountValue');
-  if (!order) throw ApiError.notFound('Order not found');
-  if (!isAdmin && userId && order.user._id.toString() !== userId) {
-    throw ApiError.forbidden('You do not have permission to view this order');
-  }
-  return order;
 };
 
 export const updateOrderStatus = async (id, { status, note }, changedBy) => {
