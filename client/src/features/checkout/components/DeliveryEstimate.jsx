@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Truck, Clock, ShieldCheck, CalendarDays, AlertTriangle } from "lucide-react";
 import { useCartStore } from "../../../store/cartStore";
 import { formatPrice, formatDate } from "../../../utils/formatCurrency";
@@ -21,9 +22,15 @@ function getEstimatedDeliveryDate() {
 export default function DeliveryEstimate() {
   const subtotal = useCartStore((s) => s.subtotal());
   const deliveryCharge = useCartStore((s) => s.deliveryCharge());
-  const freeDeliveryProgress = useCartStore((s) => s.freeDeliveryProgress());
+  const freeDeliveryThreshold = useCartStore((s) => s.freeDeliveryThresholdAmount());
   const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
   const meetsMinimumOrder = useCartStore((s) => s.meetsMinimumOrder());
+
+  const freeDeliveryProgress = useMemo(() => ({
+    remaining: Math.max(0, freeDeliveryThreshold - subtotal),
+    reached: subtotal >= freeDeliveryThreshold,
+    threshold: freeDeliveryThreshold,
+  }), [subtotal, freeDeliveryThreshold]);
 
   const estimatedDate = getEstimatedDeliveryDate();
   const isToday = estimatedDate.toDateString() === new Date().toDateString();

@@ -161,15 +161,7 @@ export const useCartStore = create(
 
       pointsToEarn: () => Math.floor(get().subtotal() / 100) * POINTS_EARNED_PER_100,
 
-      freeDeliveryProgress: () => {
-        const subtotal = get().subtotal();
-        const threshold = getSettings().freeDeliveryThreshold;
-        return {
-          remaining: Math.max(0, threshold - subtotal),
-          reached: subtotal >= threshold,
-          threshold,
-        };
-      },
+      freeDeliveryThresholdAmount: () => getSettings().freeDeliveryThreshold,
     }),
     { name: "united-mart-cart" }
   )
