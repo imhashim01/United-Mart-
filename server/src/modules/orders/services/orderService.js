@@ -185,7 +185,13 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
         description: `Earned from order ${order.orderNumber}`,
       });
       await createInvoiceForOrder(order);
-      await notifyUser(userId, `Your order ${order.orderNumber} has been placed successfully.`);
+      await notifyUser({
+  userId,
+  title: 'Order placed',
+  message: `Your order ${order.orderNumber} has been placed successfully.`,
+  type: 'order',
+  link: `/orders/${order._id}`,
+});
     } catch (sideEffectError) {
       console.error('Post-order side effects failed:', sideEffectError.message);
     }
@@ -198,6 +204,30 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     }
     throw error;
   }
+};
+
+export const listOrders = async (queryString, filter = {}) => {
+  const total = await Order.countDocuments({ ...filter, ...new ApiFeatures(Order.find(), queryString).filter().query.getFilter() });
+  const features = new ApiFeatures(Order.find(filter).populate('user', 'name email phone avatar'), queryString)
+    .filter()
+    .sort()
+    .limitFields()
+    .paginate();
+
+  const orders = await features.query;
+  return { orders, meta: buildPaginationMeta({ ...features.pagination, total }) };
+};
+
+export const getOrderById = async (id, requester) => {
+  const order = await Order.findById(id).populate('user', 'name email phone avatar');
+  if (!order) throw ApiError.notFound('Order not found');
+
+  const isOwner = order.user?._id?.toString() === requester?.id;
+  if (!isOwner && requester && !['admin', 'manager'].includes(requester.role)) {
+    throw ApiError.forbidden('You do not have permission to view this order');
+  }
+
+  return order;
 };
 
 export const updateOrderStatus = async (id, { status, note }, changedBy) => {
