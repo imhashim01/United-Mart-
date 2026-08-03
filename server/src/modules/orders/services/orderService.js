@@ -18,7 +18,7 @@ const canUseTransactions = () => mongoose.connection.readyState === 1 && !!proce
 const FLAT_SHIPPING_FEE = Number(process.env.SHIPPING_FEE || 200);
 const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 5000);
 
-const canUseTransactions = () => mongoose.connection.readyState === 1 && !!process.env.MONGO_REPLICA_SET;
+
 
 export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items, pointsToRedeem }) => {
   if (!Array.isArray(items) || items.length === 0) {
