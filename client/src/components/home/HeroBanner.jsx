@@ -74,7 +74,7 @@ export default function HeroBanner() {
             className="relative rounded-[var(--radius-xl)] overflow-hidden shadow-[var(--shadow-lg)] border-4 border-white/10"
           >
             <img
-  src="https://chatgpt.com/backend-api/estuary/content?id=file_00000000993081f6912923d53f3fce10&ts=496042&p=fs&cid=1&sig=aa1c0b432bebfc5e49fa3387e3b1135c709b010bf8f5ac59a5384b5d3e8af323&v=0"
+  src="https://res.cloudinary.com/osb9u3aw/image/upload/v1785751875/ChatGPT_Image_Aug_3_2026_03_09_48_PM_x0gl45.png"
   alt="Assorted grocery essentials — oils, spices, and pantry staples"
   className="w-full h-[420px] object-cover"
 />
