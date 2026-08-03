@@ -222,8 +222,8 @@ export const getOrderById = async (id, requester) => {
   const order = await Order.findById(id).populate('user', 'name email phone avatar');
   if (!order) throw ApiError.notFound('Order not found');
 
-  const isOwner = order.user?._id?.toString() === requester?.id;
-  if (!isOwner && requester && !['admin', 'manager'].includes(requester.role)) {
+  const isOwner = order.user?._id?.toString() === requester?.userId;
+  if (!isOwner && !requester?.isAdmin) {
     throw ApiError.forbidden('You do not have permission to view this order');
   }
 
