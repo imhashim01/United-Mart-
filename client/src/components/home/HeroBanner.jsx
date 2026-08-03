@@ -74,10 +74,10 @@ export default function HeroBanner() {
             className="relative rounded-[var(--radius-xl)] overflow-hidden shadow-[var(--shadow-lg)] border-4 border-white/10"
           >
             <img
-              src="https://images.unsplash.com/photo-1610832958506-aa56368176cf?w=700&q=80"
-              alt="Fresh produce basket"
-              className="w-full h-[420px] object-cover"
-            />
+  src="https://chatgpt.com/backend-api/estuary/content?id=file_00000000993081f6912923d53f3fce10&ts=496042&p=fs&cid=1&sig=aa1c0b432bebfc5e49fa3387e3b1135c709b010bf8f5ac59a5384b5d3e8af323&v=0"
+  alt="Assorted grocery essentials — oils, spices, and pantry staples"
+  className="w-full h-[420px] object-cover"
+/>
           </motion.div>
 
           <motion.div
