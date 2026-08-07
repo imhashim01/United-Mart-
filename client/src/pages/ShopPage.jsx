@@ -86,7 +86,10 @@ export default function ShopPage() {
     }
 
     if (filters.categories.length > 0) {
-      list = list.filter((p) => filters.categories.includes(p.category));
+      list = list.filter((p) =>
+  filters.categories.includes(p.category) ||
+  p.additionalCategoryNames?.some((c) => filters.categories.includes(c))
+);
     }
     if (filters.brands.length > 0) {
       list = list.filter((p) => filters.brands.includes(p.brand));

@@ -13,15 +13,23 @@ const applyPriceRange = (query, { minPrice, maxPrice }) => {
 };
 
 export const listProducts = async (queryString) => {
-  const baseFilter = applyPriceRange({}, queryString);
-  if (queryString.inStock === 'true' || queryString.inStock === true) baseFilter.stock = { $gt: 0 };
+  const { category: categoryId, ...restQuery } = queryString;
+  const baseFilter = applyPriceRange({}, restQuery);
+  if (restQuery.inStock === 'true' || restQuery.inStock === true) baseFilter.stock = { $gt: 0 };
+  // A product can belong to one primary category plus any number of
+  // additional categories — matching either keeps every browse/filter path
+  // working the same way regardless of which list a product was added to.
+  if (categoryId) baseFilter.$or = [{ category: categoryId }, { additionalCategories: categoryId }];
 
-  const countFeatures = new ApiFeatures(Product.find(baseFilter), queryString).filter();
+  const countFeatures = new ApiFeatures(Product.find(baseFilter), restQuery).filter();
   const total = await Product.countDocuments(countFeatures.query.getFilter());
 
   const features = new ApiFeatures(
-    Product.find(baseFilter).populate('category', 'name slug').populate('brand', 'name slug'),
-    queryString
+    Product.find(baseFilter)
+      .populate('category', 'name slug')
+      .populate('additionalCategories', 'name slug')
+      .populate('brand', 'name slug'),
+    restQuery
   )
     .filter()
     .search(['name', 'description', 'tags'])
@@ -34,7 +42,10 @@ export const listProducts = async (queryString) => {
 };
 
 export const getProductById = async (id) => {
-  const product = await Product.findById(id).populate('category', 'name slug').populate('brand', 'name slug');
+  const product = await Product.findById(id)
+    .populate('category', 'name slug')
+    .populate('additionalCategories', 'name slug')
+    .populate('brand', 'name slug');
   if (!product) throw ApiError.notFound('Product not found');
   return product;
 };
@@ -42,11 +53,11 @@ export const getProductById = async (id) => {
 export const getProductBySlug = async (slug) => {
   const product = await Product.findOne({ slug, isActive: true })
     .populate('category', 'name slug')
+    .populate('additionalCategories', 'name slug')
     .populate('brand', 'name slug');
   if (!product) throw ApiError.notFound('Product not found');
   return product;
 };
-
 const ensureUniqueVariantSkus = (variants = []) => {
   const skus = variants
     .map((variant) => variant.sku?.trim().toUpperCase())
@@ -60,6 +71,13 @@ const ensureUniqueVariantSkus = (variants = []) => {
 export const createProduct = async (data) => {
   const category = await Category.findById(data.category);
   if (!category) throw ApiError.badRequest('Category not found');
+
+  if (data.additionalCategories?.length) {
+    const count = await Category.countDocuments({ _id: { $in: data.additionalCategories } });
+    if (count !== data.additionalCategories.length) {
+      throw ApiError.badRequest('One or more additional categories were not found');
+    }
+  }
 
   const existingSku = await Product.findOne({ sku: data.sku });
   if (existingSku) throw ApiError.conflict('A product with this SKU already exists');

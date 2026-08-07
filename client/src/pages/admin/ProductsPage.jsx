@@ -21,7 +21,7 @@ export default function ProductsPage() {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    name: "", brand: "", categoryId: "", price: "", unit: "", stockCount: "",
+    name: "", brand: "", categoryId: "", additionalCategoryIds: [], price: "", unit: "", stockCount: "",
     inStock: true, description: "", imageUrl: "", variants: [],
     isFeatured: false, isBestSeller: false, isTodaysDeal: false,
   });
@@ -65,7 +65,9 @@ export default function ProductsPage() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const resetForm = () => ({
-    name: "", brand: brandObjects[0]?.id ?? "", categoryId: categoryObjects[0]?.id ?? "", price: "", unit: "",
+    name: "", brand: brandObjects[0]?.id ?? "", categoryId: categoryObjects[0]?.id ?? "",
+    additionalCategoryIds: [],
+    price: "", unit: "",
     stockCount: "", inStock: true, description: "", imageUrl: "", variants: [],
     isFeatured: false, isBestSeller: false, isTodaysDeal: false,
   });
@@ -87,10 +89,14 @@ export default function ProductsPage() {
     setSelectedProduct(product);
     const matchingCategory = categoryObjects.find((c) => c.name === product.category);
     const matchingBrand = brandObjects.find((b) => b.name === product.brand);
+    const matchingAdditionalCategoryIds = (product.additionalCategoryNames ?? [])
+      .map((name) => categoryObjects.find((c) => c.name === name)?.id)
+      .filter(Boolean);
     setForm({
       name: product.name,
       brand: matchingBrand?.id ?? "",
       categoryId: matchingCategory?.id ?? categoryObjects[0]?.id ?? "",
+      additionalCategoryIds: matchingAdditionalCategoryIds,
       price: product.price,
       unit: product.unit,
       stockCount: product.stockCount,
@@ -120,7 +126,7 @@ export default function ProductsPage() {
         const { data } = await productsApi.listProducts({
           limit: 200,
           page,
-          fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal',
+          fields: 'name,sku,description,price,discountPrice,unit,stock,category,additionalCategories,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal',
         });
         results.push(...(data.data || []));
         totalPages = data?.meta?.totalPages ?? 1;
@@ -180,6 +186,7 @@ export default function ProductsPage() {
       name: productName,
       sku: selectedProduct?.sku || generatedSku,
       category: form.categoryId, // ObjectId, not the category name
+      additionalCategories: form.additionalCategoryIds,
       brand: form.brand,
       price: Number(form.price) || 0,
       unit: form.unit.trim() || "1 unit",
@@ -231,15 +238,11 @@ export default function ProductsPage() {
       const resp = error?.response?.data;
       console.error("Save failed:", error?.response || error.message);
       if (resp) {
-        // Show full server message or fallback to JSON for debugging
         toast.error(resp.message || JSON.stringify(resp));
         console.error("Server response body:", resp);
       } else {
         toast.error("Failed to save product on the server");
       }
-      // Deliberately NOT closing the modal or updating local state here —
-      // if the server rejected it, the admin should see the error and fix
-      // the form rather than have the UI silently pretend it worked.
     } finally {
       setSaving(false);
     }
@@ -305,12 +308,12 @@ export default function ProductsPage() {
       </AdminTableShell>
 
       <Pagination
-  currentPage={page}
-  totalPages={totalPages}
-  onPageChange={setPage}
-  totalItems={filtered.length}
-  pageSize={PAGE_SIZE}
-/>
+        currentPage={page}
+        totalPages={totalPages}
+        onPageChange={setPage}
+        totalItems={filtered.length}
+        pageSize={PAGE_SIZE}
+      />
 
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-charcoal-900/50 px-4 py-6">
@@ -328,6 +331,9 @@ export default function ProductsPage() {
                 <p><span className="font-semibold text-charcoal-900">Name:</span> {selectedProduct.name}</p>
                 <p><span className="font-semibold text-charcoal-900">Brand:</span> {selectedProduct.brand}</p>
                 <p><span className="font-semibold text-charcoal-900">Category:</span> {selectedProduct.category}</p>
+                {selectedProduct.additionalCategoryNames?.length > 0 && (
+                  <p><span className="font-semibold text-charcoal-900">Also in:</span> {selectedProduct.additionalCategoryNames.join(", ")}</p>
+                )}
                 <p><span className="font-semibold text-charcoal-900">Price:</span> {formatPrice(selectedProduct.price)}</p>
                 <p><span className="font-semibold text-charcoal-900">Stock:</span> {selectedProduct.stockCount}</p>
                 <p><span className="font-semibold text-charcoal-900">Status:</span> {selectedProduct.inStock ? "In Stock" : "Out of Stock"}</p>
@@ -366,6 +372,41 @@ export default function ProductsPage() {
                   <span className="mb-1.5 block">Stock</span>
                   <input type="number" min="0" value={form.stockCount} onChange={(e) => setForm({ ...form, stockCount: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
                 </label>
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-charcoal-900 mb-1.5 block">
+                    Also show in these categories <span className="text-charcoal-600 font-normal">(optional)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {categoryObjects
+                      .filter((c) => c.id !== form.categoryId)
+                      .map((c) => {
+                        const checked = form.additionalCategoryIds.includes(c.id);
+                        return (
+                          <label
+                            key={c.id}
+                            className={`flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm cursor-pointer transition-colors ${
+                              checked ? "border-orchard-900 bg-linen-50 text-orchard-900" : "border-border-strong text-charcoal-600"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) =>
+                                setForm({
+                                  ...form,
+                                  additionalCategoryIds: e.target.checked
+                                    ? [...form.additionalCategoryIds, c.id]
+                                    : form.additionalCategoryIds.filter((id) => id !== c.id),
+                                })
+                              }
+                              className="hidden"
+                            />
+                            {c.name}
+                          </label>
+                        );
+                      })}
+                  </div>
+                </div>
                 <label className="md:col-span-2 text-sm font-medium text-charcoal-900">
                   <span className="mb-1.5 block">Description</span>
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 resize-none" />
@@ -375,6 +416,7 @@ export default function ProductsPage() {
                   <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://example.com/image.jpg" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
                 </label>
                 <div className="md:col-span-2">
+                
                   <div className="flex items-center justify-between mb-3">
                     <h4 className="text-sm font-medium text-charcoal-900">Variants</h4>
                     <button type="button" onClick={addVariant} className="h-9 rounded-[var(--radius-md)] bg-orchard-900 px-3 text-sm font-semibold text-white">Add Variant</button>

@@ -15,7 +15,11 @@ export default function CategoryPage() {
 
   const category = getCategories().find((item) => item.slug === slug);
   const categoryProducts = category
-    ? getProducts().filter((product) => product.category === category.name)
+    ? getProducts().filter(
+    (product) =>
+      product.category === category.name ||
+      product.additionalCategoryNames?.includes(category.name)
+  )
     : [];
 
   return (
