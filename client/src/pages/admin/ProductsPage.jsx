@@ -8,6 +8,7 @@ import VariantImageUploader from "../../components/admin/VariantImageUploader";
 import { loadCategories, loadBrands, mapApiProduct, slugify } from "../../data/productsData";
 import * as productsApi from "../../features/admin/products/api/productsApi";
 import { formatPrice } from "../../utils/formatCurrency";
+import Pagination from "../../features/search/components/Pagination";
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -52,6 +53,16 @@ export default function ProductsPage() {
     }
     return list;
   }, [products, query, category]);
+
+  const PAGE_SIZE = 20;
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    setPage(1);
+  }, [query, category]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const resetForm = () => ({
     name: "", brand: brandObjects[0]?.id ?? "", categoryId: categoryObjects[0]?.id ?? "", price: "", unit: "",
@@ -102,9 +113,20 @@ export default function ProductsPage() {
 
   const syncFromServer = async () => {
     try {
-      const { data } = await productsApi.listProducts({ limit: 100, fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal' });
-      const apiProducts = data.data || [];
-      setProducts(apiProducts.map((product) => mapApiProduct(product)));
+      const results = [];
+      let page = 1;
+      let totalPages = 1;
+      do {
+        const { data } = await productsApi.listProducts({
+          limit: 200,
+          page,
+          fields: 'name,sku,description,price,discountPrice,unit,stock,category,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal',
+        });
+        results.push(...(data.data || []));
+        totalPages = data?.meta?.totalPages ?? 1;
+        page += 1;
+      } while (page <= totalPages);
+      setProducts(results.map((product) => mapApiProduct(product)));
     } catch (error) {
       const message = error?.response?.data?.message || "Failed to load products from server.";
       toast.error(message);
@@ -256,7 +278,7 @@ export default function ProductsPage() {
             </tr>
           </thead>
           <tbody>
-            {filtered.map((p) => (
+            {paginated.map((p) => (
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-linen-50 transition-colors">
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -281,6 +303,14 @@ export default function ProductsPage() {
           </tbody>
         </table>
       </AdminTableShell>
+
+      <Pagination
+  currentPage={page}
+  totalPages={totalPages}
+  onPageChange={setPage}
+  totalItems={filtered.length}
+  pageSize={PAGE_SIZE}
+/>
 
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-charcoal-900/50 px-4 py-6">

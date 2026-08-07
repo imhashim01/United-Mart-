@@ -179,22 +179,37 @@ let cachedProducts = [];
 let cachedCategories = [];
 let cachedBrands = [];
 
+// Fetches every page of a paginated list endpoint and returns the combined
+// array — a catalog bigger than one page's max limit was silently getting
+// truncated to just the first page in the live cache.
+const fetchAllPages = async (endpoint, maxLimit = 100) => {
+  const results = [];
+  let page = 1;
+  let totalPages = 1;
+
+  do {
+    const { data } = await api.get(endpoint, { params: { limit: maxLimit, page } });
+    results.push(...(data?.data ?? []));
+    totalPages = data?.meta?.totalPages ?? 1;
+    page += 1;
+  } while (page <= totalPages);
+
+  return results;
+};
+
 export const loadProducts = async () => {
   try {
-    const { data } = await api.get("/products", { params: { limit: 100 } });
-    const rawList = data?.data ?? [];
+    const rawList = await fetchAllPages("/products", 200);
     cachedProducts = rawList.map((p, i) => normalizeProduct(mapApiProduct(p), `product-${i + 1}`));
   } catch (error) {
     console.error("Failed to load products from API:", error?.response?.data || error.message);
-    // Keep whatever was previously cached rather than wiping the storefront on a transient network error
   }
   return cachedProducts;
 };
 
 export const loadCategories = async () => {
   try {
-    const { data } = await api.get("/categories", { params: { limit: 100 } });
-    const rawList = data?.data ?? [];
+    const rawList = await fetchAllPages("/categories", 100);
     cachedCategories = rawList.map(mapApiCategory);
   } catch (error) {
     console.error("Failed to load categories from API:", error?.response?.data || error.message);
@@ -204,8 +219,7 @@ export const loadCategories = async () => {
 
 export const loadBrands = async () => {
   try {
-    const { data } = await api.get("/brands", { params: { limit: 100 } });
-    const rawList = data?.data ?? [];
+    const rawList = await fetchAllPages("/brands", 100);
     cachedBrands = rawList.map(mapApiBrand);
   } catch (error) {
     console.error("Failed to load brands from API:", error?.response?.data || error.message);
