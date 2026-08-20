@@ -12,6 +12,15 @@ import { getProducts, getPriceRange } from "../data/productsData";
 
 const PAGE_SIZE = 12;
 
+// Fisher-Yates shuffle — doesn't mutate the input array.
+function shuffleArray(array) {
+  const result = [...array];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
 
 export default function ShopPage() {
   const [searchParams] = useSearchParams();
@@ -34,6 +43,12 @@ export default function ShopPage() {
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const currentProducts = getProducts();
+
+  // Randomized once per page load (not on every render/filter change, so
+  // products don't visibly reshuffle every time you type or click a filter).
+  // Only used for the default "relevance" view — every explicit sort option
+  // (Newest, Price, Rating, Discount) still works exactly as it always has.
+  const shuffledProducts = useMemo(() => shuffleArray(currentProducts), []);
 
   const productCounts = useMemo(() => {
     const byCategory = {};
@@ -79,7 +94,7 @@ export default function ShopPage() {
   };
 
   const filtered = useMemo(() => {
-    let list = [...currentProducts];
+    let list = sortBy === "relevance" ? [...shuffledProducts] : [...currentProducts];
 
     if (query.trim()) {
       list = list.filter((p) => matchesQuery(p, query));
@@ -87,9 +102,9 @@ export default function ShopPage() {
 
     if (filters.categories.length > 0) {
       list = list.filter((p) =>
-  filters.categories.includes(p.category) ||
-  p.additionalCategoryNames?.some((c) => filters.categories.includes(c))
-);
+        filters.categories.includes(p.category) ||
+        p.additionalCategoryNames?.some((c) => filters.categories.includes(c))
+      );
     }
     if (filters.brands.length > 0) {
       list = list.filter((p) => filters.brands.includes(p.brand));
@@ -123,7 +138,7 @@ export default function ShopPage() {
     }
 
     return list;
-  }, [query, filters, sortBy, filterParam]);
+  }, [query, filters, sortBy, filterParam, shuffledProducts, currentProducts]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
