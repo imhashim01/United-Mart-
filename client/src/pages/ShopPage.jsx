@@ -10,7 +10,7 @@ import SortDropdown from "../features/search/components/SortDropdown";
 import Pagination from "../features/search/components/Pagination";
 import { getProducts, getPriceRange } from "../data/productsData";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 50;
 
 // Fisher-Yates shuffle — doesn't mutate the input array.
 function shuffleArray(array) {
