@@ -99,7 +99,7 @@ export default function AddressManager({ selectedId, onSelect, onAddressChange }
         response = await addressApi.addAddress({ ...payload, isDefault: addresses.length === 0 });
       }
 
-      const updatedUser = response.data;
+      const updatedUser = response.data.data;
       setUser(updatedUser);
 
       const savedAddress = editingId
