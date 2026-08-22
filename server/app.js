@@ -37,14 +37,40 @@ export const createApp = () => {
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
 
-  app.use(helmet());
-  app.use(compression());
-  if (process.env.NODE_ENV !== 'test') app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
-  app.use(cors({ origin: process.env.CLIENT_URL || 'http://localhost:5173', credentials: true }));
-  app.use(cookieParser());
-  app.use(express.json({ limit: '10mb' }));
-  app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-  app.use(mongoSanitize());
+app.use(helmet());
+app.use(compression());
+
+if (process.env.NODE_ENV !== 'test') {
+  app.use(
+    morgan(
+      process.env.NODE_ENV === 'production'
+        ? 'combined'
+        : 'dev'
+    )
+  );
+}
+
+const allowedOrigins = [
+  'http://localhost:5173',
+  'https://unitedmartsukkur.com',
+  'https://www.unitedmartsukkur.com'
+];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked: ${origin}`));
+    }
+  },
+  credentials: true
+}));
+
+app.use(cookieParser());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(mongoSanitize());
 
   const limiter = rateLimit({
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
