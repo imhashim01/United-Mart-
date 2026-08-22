@@ -14,6 +14,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import RewardsPage from "./pages/RewardsPage";
 import InfoPage from "./pages/InfoPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
+import FloatingCartBar from "./components/layout/FloatingCartBar";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -236,6 +237,7 @@ export default function App() {
           }
         />
       </Routes>
+      <FloatingCartBar />
     </BrowserRouter>
   );
 }
