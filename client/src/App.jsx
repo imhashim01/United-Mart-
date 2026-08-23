@@ -27,6 +27,20 @@ function ScrollToTop() {
   return null;
 }
 
+function AnalyticsTracker() {
+  const location = useLocation();
+
+  useEffect(() => {
+    if (typeof window.gtag === "function") {
+      window.gtag("config", "G-X2T226PX3Z", {
+        page_path: location.pathname + location.search,
+      });
+    }
+  }, [location]);
+
+  return null;
+}
+
 // Admin pages
 import DashboardPage from "./pages/admin/DashboardPage";
 import AdminOrdersPage from "./pages/admin/OrdersPage";
@@ -51,6 +65,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
+      <AnalyticsTracker />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopPage />} />
