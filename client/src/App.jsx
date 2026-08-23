@@ -15,6 +15,7 @@ import RewardsPage from "./pages/RewardsPage";
 import InfoPage from "./pages/InfoPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import FloatingCartBar from "./components/layout/FloatingCartBar";
+import WhatsAppButton from "./components/layout/WhatsAppButton";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -238,6 +239,7 @@ export default function App() {
         />
       </Routes>
       <FloatingCartBar />
+      <WhatsAppButton />
     </BrowserRouter>
   );
 }

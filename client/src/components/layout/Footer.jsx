@@ -2,9 +2,8 @@ import { Facebook, Instagram, MapPin, Phone, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
 import { useEffect, useState } from "react";
-import { getSettings, getPersistedCategoryObjects } from "../../utils/persistedData";
-import { getPersistedSettings } from "../../utils/persistedData";
 import { getCategoryObjects } from "../../data/productsData";
+import { getPersistedSettings } from "../../utils/persistedData";
 const FOOTER_COLUMNS = [
   {
     title: "Shop",
@@ -43,19 +42,21 @@ export default function Footer() {
   const [categoryLinks, setCategoryLinks] = useState(FOOTER_COLUMNS[0].links);
 
   useEffect(() => {
-    setSettings(getPersistedSettings({
-  storeName: "United Mart Sukkur",
-  supportEmail: "unitedmartsukkur@gmail.com",
-  supportPhone: "+92 333 7111954",
-  address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
-}));
+    setSettings(
+      getPersistedSettings({
+        storeName: "United Mart Sukkur",
+        supportEmail: "unitedmartsukkur@gmail.com",
+        supportPhone: "+92 333 7111954",
+        address: "Anaj Bazar, Sukkur, Sindh, Pakistan",
+      })
+    );
 
-const cats = getCategoryObjects();
-if (Array.isArray(cats) && cats.length > 0) {
-  setCategoryLinks(
-    cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
-  );
-}
+    const cats = getCategoryObjects();
+    if (Array.isArray(cats) && cats.length > 0) {
+      setCategoryLinks(
+        cats.map((c) => ({ label: c.name, href: `/shop?category=${encodeURIComponent(c.name)}` }))
+      );
+    }
   }, []);
 
   const storeName = settings?.storeName ?? "United Mart Sukkur";
