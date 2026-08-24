@@ -181,26 +181,37 @@ let cachedCategories = [];
 let cachedBrands = [];
 
 // Fetches every page of a paginated list endpoint and returns the combined
-// array — a catalog bigger than one page's max limit was silently getting
-// truncated to just the first page in the live cache.
-const fetchAllPages = async (endpoint, maxLimit = 100) => {
-  const results = [];
-  let page = 1;
-  let totalPages = 1;
+// array. Page 1 is fetched first (to learn how many total pages exist),
+// then every remaining page is fetched in parallel instead of one-at-a-time —
+// sequential fetching meant a catalog spanning N pages took N times as long
+// as it needed to, since each page waited for the previous one to finish.
+const fetchAllPages = async (endpoint, maxLimit = 100, extraParams = {}) => {
+  const { data: firstPage } = await api.get(endpoint, { params: { limit: maxLimit, page: 1, ...extraParams } });
+  const results = [...(firstPage?.data ?? [])];
+  const totalPages = firstPage?.meta?.totalPages ?? 1;
 
-  do {
-    const { data } = await api.get(endpoint, { params: { limit: maxLimit, page } });
-    results.push(...(data?.data ?? []));
-    totalPages = data?.meta?.totalPages ?? 1;
-    page += 1;
-  } while (page <= totalPages);
+  if (totalPages > 1) {
+    const remainingPageNumbers = Array.from({ length: totalPages - 1 }, (_, i) => i + 2);
+    const remainingResponses = await Promise.all(
+      remainingPageNumbers.map((page) =>
+        api.get(endpoint, { params: { limit: maxLimit, page, ...extraParams } })
+      )
+    );
+    remainingResponses.forEach(({ data }) => results.push(...(data?.data ?? [])));
+  }
 
   return results;
 };
 
 export const loadProducts = async () => {
   try {
-    const rawList = await fetchAllPages("/products", 200);
+    // Only request the fields the storefront actually renders — the full
+    // product document (every variant's full image gallery, timestamps,
+    // admin-only fields) was making each page several hundred KB larger
+    // than it needed to be.
+    const rawList = await fetchAllPages("/products", 200, {
+      fields: "name,slug,sku,description,price,discountPrice,unit,stock,category,additionalCategories,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal,ratings",
+    });
     cachedProducts = rawList.map((p, i) => normalizeProduct(mapApiProduct(p), `product-${i + 1}`));
   } catch (error) {
     console.error("Failed to load products from API:", error?.response?.data || error.message);
