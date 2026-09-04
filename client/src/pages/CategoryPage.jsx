@@ -1,3 +1,4 @@
+import usePageTitle from "../hooks/usePageTitle";
 import { Link, useParams } from "react-router-dom";
 import { useEffect } from "react";
 import Header from "../components/layout/Header";
@@ -13,7 +14,7 @@ export default function CategoryPage() {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [slug]);
 
-  const category = getCategories().find((item) => item.slug === slug);
+    const category = getCategories().find((item) => item.slug === slug);
   const categoryProducts = category
     ? getProducts().filter(
     (product) =>
@@ -21,6 +22,13 @@ export default function CategoryPage() {
       product.additionalCategoryNames?.includes(category.name)
   )
     : [];
+
+  usePageTitle(
+    category ? `${category.name} — Shop Online` : "Category Not Found",
+    category
+      ? `Shop fresh ${category.name.toLowerCase()} online in Sukkur & Rohri, delivered same-day before 4 PM by United Mart Sukkur.`
+      : undefined
+  );
 
   return (
     <div className="min-h-screen bg-linen-50 flex flex-col">

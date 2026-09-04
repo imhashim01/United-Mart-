@@ -1,3 +1,4 @@
+import usePageTitle from "../hooks/usePageTitle";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ShoppingBasket, Truck, ShieldCheck, ChevronRight } from "lucide-react";
@@ -54,7 +55,7 @@ export default function ProductDetailsPage() {
   }, [product, selectedVariantId]);
 
   if (!product) return <Navigate to="/" replace />;
-
+  usePageTitle(product.name, product.description || `Buy ${product.name} online in Sukkur — fast delivery with United Mart Sukkur.`);
   const selectedVariant = product.variants?.find((variant) => variant.id === selectedVariantId) ?? null;
   const galleryImages = useMemo(() => {
     const images = selectedVariant?.images?.length ? selectedVariant.images : product.images;

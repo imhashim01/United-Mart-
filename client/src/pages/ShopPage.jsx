@@ -1,3 +1,4 @@
+import usePageTitle from "../hooks/usePageTitle";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -175,11 +176,28 @@ export default function ShopPage() {
     setPage(1);
   };
 
-  const activeFilterCount =
+    const activeFilterCount =
     filters.categories.length +
     filters.brands.length +
     (filters.inStockOnly ? 1 : 0) +
     (filters.discountedOnly ? 1 : 0);
+
+  const pageHeading = filterParam === "deals"
+    ? "Today's Deals"
+    : categoryParam
+    ? `Shop ${categoryParam}`
+    : brandParam
+    ? `Shop ${brandParam}`
+    : query
+    ? `Results for "${query}"`
+    : "Shop All Products";
+
+  usePageTitle(
+    pageHeading,
+    filterParam === "deals"
+      ? "Today's best grocery deals and discounts, delivered same-day across Sukkur & Rohri."
+      : `Browse fresh groceries and everyday essentials online in Sukkur — ${filtered.length} products available, delivered same-day.`
+  );
 
   return (
     <div className="min-h-screen bg-linen-50 flex flex-col">
@@ -188,15 +206,7 @@ export default function ShopPage() {
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
         <div className="mb-6">
           <h1 className="font-display text-2xl md:text-3xl text-orchard-900 mb-1.5">
-            {filterParam === "deals"
-              ? "Today’s Deals"
-              : categoryParam
-              ? `Shop ${categoryParam}`
-              : brandParam
-              ? `Shop ${brandParam}`
-              : query
-              ? `Results for "${query}"`
-              : "Shop All Products"}
+            {pageHeading}
           </h1>
           <p className="text-sm text-charcoal-600">{filtered.length} products found</p>
         </div>
