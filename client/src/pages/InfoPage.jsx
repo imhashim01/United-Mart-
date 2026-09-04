@@ -1,3 +1,4 @@
+import usePageTitle from "../hooks/usePageTitle";
 import { Link } from "react-router-dom";
 import { ArrowRight, MessageCircleMore } from "lucide-react";
 import Header from "../components/layout/Header";
@@ -355,6 +356,8 @@ export default function InfoPage({
   ctaLabel = "Browse Products",
   ctaHref = "/shop",
 }) {
+  usePageTitle(title, description);
+
   const pageContent = {
     about: aboutContent,
     delivery: deliveryInfoContent,
