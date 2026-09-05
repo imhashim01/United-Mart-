@@ -1,58 +1,62 @@
+import { useRef } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import SectionHeader from "../ui/SectionHeader";
 import ProductCard from "../ui/ProductCard";
 import { getFeaturedProducts } from "../../data/homeData";
 
 export default function FeaturedProducts() {
   const featuredProducts = getFeaturedProducts();
+  const scrollerRef = useRef(null);
 
   if (featuredProducts.length === 0) return null;
 
-  // Slower than the brand-logo marquee — product cards carry more to read
-  // (name, price, rating) so each one needs more time on screen.
-  const duration = Math.max(20, featuredProducts.length * 6);
+  const scrollByAmount = (direction) => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    const cardWidth = el.firstChild?.offsetWidth ?? 240;
+    el.scrollBy({ left: direction * (cardWidth * 3 + 32), behavior: "smooth" });
+  };
 
   return (
     <section className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">
-      <SectionHeader
-        eyebrow="Handpicked"
-        title="Featured Products"
-        subtitle="Our team's picks — quality-checked before they're listed."
-        viewAllHref="/shop?filter=featured"
-      />
-
-      <div
-        className="relative overflow-hidden"
-        style={{
-          WebkitMaskImage: "linear-gradient(to right, transparent, black 4%, black 96%, transparent)",
-          maskImage: "linear-gradient(to right, transparent, black 4%, black 96%, transparent)",
-        }}
-      >
-        <div
-          className="flex w-max gap-3 md:gap-4 animate-featured-marquee"
-          style={{ animationDuration: `${duration}s` }}
-        >
-          {[...featuredProducts, ...featuredProducts].map((product, i) => (
-            <div key={`${product.id}-${i}`} className="shrink-0 w-44 sm:w-52 md:w-60">
-              <ProductCard product={product} />
-            </div>
-          ))}
+      <div className="flex items-end justify-between gap-4 mb-2">
+        <SectionHeader
+          eyebrow="Handpicked"
+          title="Featured Products"
+          subtitle="Our team's picks — quality-checked before they're listed."
+          viewAllHref="/shop?filter=featured"
+        />
+        <div className="hidden sm:flex items-center gap-2 shrink-0 pb-1">
+          <button
+            type="button"
+            onClick={() => scrollByAmount(-1)}
+            aria-label="Scroll left"
+            className="h-9 w-9 flex items-center justify-center rounded-full border border-border-strong hover:bg-linen-50 transition-colors"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            type="button"
+            onClick={() => scrollByAmount(1)}
+            aria-label="Scroll right"
+            className="h-9 w-9 flex items-center justify-center rounded-full border border-border-strong hover:bg-linen-50 transition-colors"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       </div>
 
-      <style>{`
-        @keyframes featured-marquee {
-          from { transform: translateX(0); }
-          to { transform: translateX(-50%); }
-        }
-        .animate-featured-marquee {
-          animation-name: featured-marquee;
-          animation-timing-function: linear;
-          animation-iteration-count: infinite;
-        }
-        .animate-featured-marquee:hover {
-          animation-play-state: paused;
-        }
-      `}</style>
+      <div
+        ref={scrollerRef}
+        className="flex gap-3 md:gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-2"
+        style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+      >
+        {featuredProducts.map((product) => (
+          <div key={product.id} className="shrink-0 snap-start w-44 sm:w-52 md:w-60">
+            <ProductCard product={product} />
+          </div>
+        ))}
+      </div>
     </section>
   );
 }
