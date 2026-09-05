@@ -117,6 +117,7 @@ export default function ShopPage() {
     if (filters.inStockOnly) list = list.filter((p) => isProductInStock(p));
     const showDeals = filterParam === "deals" || filters.discountedOnly;
     if (showDeals) list = list.filter((p) => isProductDiscounted(p));
+    if (filterParam === "featured") list = list.filter((p) => p.isFeatured);
 
     switch (sortBy) {
       case "price-asc":
@@ -184,6 +185,8 @@ export default function ShopPage() {
 
   const pageHeading = filterParam === "deals"
     ? "Today's Deals"
+    : filterParam === "featured"
+    ? "Featured Products"
     : categoryParam
     ? `Shop ${categoryParam}`
     : brandParam
