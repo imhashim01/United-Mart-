@@ -93,8 +93,22 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
         ...(orderNotes ? { customerNote: orderNotes } : {}),
       };
 
+      if (typeof window.fbq === "function") {
+        window.fbq("track", "InitiateCheckout", {
+          value: total,
+          currency: "PKR",
+          num_items: items.length,
+        });
+      }
+
       const { data } = await ordersApi.createOrder(payload);
       const createdOrder = data.data;
+      if (typeof window.fbq === "function") {
+        window.fbq("track", "Purchase", {
+          value: createdOrder?.totalAmount ?? total,
+          currency: "PKR",
+        });
+      }
       const newOrderId = createdOrder?.id || createdOrder?.orderNumber || createdOrder?._id || `UMS-${Math.floor(100000 + Math.random() * 900000)}`;
 
       setOrderId(newOrderId);
@@ -207,13 +221,13 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
               <DeliveryEstimate />
               <OrderSummary paymentMethod={paymentMethod} />
 
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full h-12 rounded-[var(--radius-md)] bg-orchard-900 text-white font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
-              >
-                {submitting ? "Placing Order..." : `Place Order — ${formatPrice(total)}`}
-              </button>
+             <button
+             type="submit"
+            disabled={submitting || !meetsMinimumOrder}
+            className="w-full h-12 rounded-[var(--radius-md)] bg-orchard-900 text-white font-semibold hover:bg-orchard-700 transition-colors disabled:opacity-60"
+            >
+            {submitting ? "Placing Order..." : !meetsMinimumOrder ? `Add ${formatPrice(minimumOrderAmount - subtotal)} more to order` : `Place Order — ${formatPrice(total)}`}
+            </button>
               <p className="text-xs text-charcoal-600 text-center">
                 By placing this order you agree to our{" "}
                 <Link to="/terms" className="underline hover:text-orchard-700">Terms of Service</Link>.

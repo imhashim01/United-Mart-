@@ -65,6 +65,15 @@ export const useCartStore = create(
             ],
           });
         }
+        if (typeof window.fbq === "function") {
+          window.fbq("track", "AddToCart", {
+            content_name: product.name,
+            content_ids: [product.id],
+            content_type: "product",
+            value: price,
+            currency: "PKR",
+          });
+        }
       },
 
       removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),

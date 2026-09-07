@@ -36,6 +36,9 @@ function AnalyticsTracker() {
         page_path: location.pathname + location.search,
       });
     }
+    if (typeof window.fbq === "function") {
+      window.fbq("track", "PageView");
+    }
   }, [location]);
 
   return null;
