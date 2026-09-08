@@ -1,12 +1,20 @@
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { Clock } from "lucide-react";
 import SectionHeader from "../ui/SectionHeader";
 import ProductCard from "../ui/ProductCard";
-import { getTodaysDeals } from "../../data/homeData";
+import { fetchTodaysDeals } from "../../data/homeSectionsApi";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 export default function TodaysDeals() {
-    const todaysDeals = getTodaysDeals();
+  const { data: todaysDeals = [] } = useQuery({
+    queryKey: ["home", "todaysDeals"],
+    queryFn: fetchTodaysDeals,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (todaysDeals.length === 0) return null;
+
   return (
     <section className="bg-mango-100/40">
       <div className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">

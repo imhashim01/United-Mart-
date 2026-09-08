@@ -1,11 +1,18 @@
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import SectionHeader from "../ui/SectionHeader";
 import ProductCard from "../ui/ProductCard";
-import { getFeaturedProducts } from "../../data/homeData";
+import { fetchFeaturedProducts } from "../../data/homeSectionsApi";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 export default function FeaturedProducts() {
-  const featuredProducts = getFeaturedProducts();
+  const { data: featuredProducts = [] } = useQuery({
+    queryKey: ["home", "featured"],
+    queryFn: fetchFeaturedProducts,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (featuredProducts.length === 0) return null;
 
   return (
     <section className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">

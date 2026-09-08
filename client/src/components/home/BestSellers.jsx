@@ -1,11 +1,20 @@
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { TrendingUp } from "lucide-react";
 import ProductCard from "../ui/ProductCard";
-import { getBestSellers } from "../../data/homeData";
+import { fetchBestSellers } from "../../data/homeSectionsApi";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 export default function BestSellers() {
-  const bestSellers = getBestSellers();
+  const { data: rawBestSellers = [] } = useQuery({
+    queryKey: ["home", "bestSellers"],
+    queryFn: fetchBestSellers,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  if (rawBestSellers.length === 0) return null;
+
+  const bestSellers = rawBestSellers.map((product, i) => ({ ...product, rank: i + 1 }));
 
   return (
     <section className="bg-orchard-900">

@@ -9,11 +9,11 @@ import ProductGrid from "../features/products/components/ProductGrid";
 import FilterSidebar from "../features/search/components/FilterSidebar";
 import SortDropdown from "../features/search/components/SortDropdown";
 import Pagination from "../features/search/components/Pagination";
-import { getProducts, getPriceRange } from "../data/productsData";
+import { getPriceRange } from "../data/productsData";
+import useProductsQuery from "../hooks/useProductsQuery";
 
 const PAGE_SIZE = 50;
 
-// Fisher-Yates shuffle — doesn't mutate the input array.
 function shuffleArray(array) {
   const result = [...array];
   for (let i = result.length - 1; i > 0; i--) {
@@ -30,26 +30,33 @@ export default function ShopPage() {
   const brandParam = searchParams.get("brand") ?? "";
   const categoryParam = searchParams.get("category") ?? "";
 
-  const priceRange = getPriceRange();
+  const { data: currentProducts = [], isLoading } = useProductsQuery();
+
   const [filters, setFilters] = useState({
     categories: categoryParam ? [categoryParam] : [],
     brands: brandParam ? [brandParam] : [],
-    priceMin: priceRange.min,
-    priceMax: priceRange.max,
+    priceMin: 0,
+    priceMax: 10000,
     inStockOnly: false,
     discountedOnly: false,
   });
+
+  // Price range depends on real product data — sync it once the catalog
+  // actually arrives, without clobbering filters the person already changed.
+  const priceRangeSynced = useMemo(() => currentProducts.length > 0, [currentProducts.length]);
+  useEffect(() => {
+    if (priceRangeSynced) {
+      const range = getPriceRange();
+      setFilters((prev) => ({ ...prev, priceMin: range.min, priceMax: range.max }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceRangeSynced]);
+
   const [sortBy, setSortBy] = useState("relevance");
   const [page, setPage] = useState(1);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const currentProducts = getProducts();
-
-  // Randomized once per page load (not on every render/filter change, so
-  // products don't visibly reshuffle every time you type or click a filter).
-  // Only used for the default "relevance" view — every explicit sort option
-  // (Newest, Price, Rating, Discount) still works exactly as it always has.
-  const shuffledProducts = useMemo(() => shuffleArray(currentProducts), []);
+  const shuffledProducts = useMemo(() => shuffleArray(currentProducts), [currentProducts]);
 
   const productCounts = useMemo(() => {
     const byCategory = {};
@@ -59,7 +66,7 @@ export default function ShopPage() {
       byBrand[p.brand] = (byBrand[p.brand] ?? 0) + 1;
     });
     return { byCategory, byBrand };
-  }, [currentProducts.length]);
+  }, [currentProducts]);
 
   const getEffectivePrice = (product) => {
     const defaultVariant = product.variants?.length
@@ -177,7 +184,7 @@ export default function ShopPage() {
     setPage(1);
   };
 
-    const activeFilterCount =
+  const activeFilterCount =
     filters.categories.length +
     filters.brands.length +
     (filters.inStockOnly ? 1 : 0) +
@@ -215,13 +222,11 @@ export default function ShopPage() {
         </div>
 
         <div className="grid lg:grid-cols-[240px_1fr] gap-8">
-          {/* Desktop sidebar */}
           <div className="hidden lg:block">
             <FilterSidebar filters={filters} onChange={handleFilterChange} productCounts={productCounts} />
           </div>
 
           <div>
-            {/* Toolbar */}
             <div className="flex items-center justify-between gap-3 mb-5">
               <button
                 type="button"
@@ -241,7 +246,15 @@ export default function ShopPage() {
               </div>
             </div>
 
-            <ProductGrid products={paginated} columns={4} animate={false} />
+            {isLoading && currentProducts.length === 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="aspect-[3/4] rounded-[var(--radius-md)] bg-linen-50 animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <ProductGrid products={paginated} columns={4} animate={false} />
+            )}
 
             <Pagination
               currentPage={page}
@@ -257,7 +270,6 @@ export default function ShopPage() {
         </div>
       </main>
 
-      {/* Mobile filter drawer */}
       <AnimatePresence>
         {mobileFiltersOpen && (
           <>

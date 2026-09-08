@@ -4,23 +4,24 @@ import { useEffect } from "react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import ProductGrid from "../features/products/components/ProductGrid";
-import { getProducts } from "../data/productsData";
 import { getCategories } from "../data/homeData";
+import useProductsQuery from "../hooks/useProductsQuery";
 
 export default function CategoryPage() {
   const { slug } = useParams();
+  const { data: allProducts = [], isLoading } = useProductsQuery();
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [slug]);
 
-    const category = getCategories().find((item) => item.slug === slug);
+  const category = getCategories().find((item) => item.slug === slug);
   const categoryProducts = category
-    ? getProducts().filter(
-    (product) =>
-      product.category === category.name ||
-      product.additionalCategoryNames?.includes(category.name)
-  )
+    ? allProducts.filter(
+        (product) =>
+          product.category === category.name ||
+          product.additionalCategoryNames?.includes(category.name)
+      )
     : [];
 
   usePageTitle(
@@ -48,7 +49,15 @@ export default function CategoryPage() {
         </div>
 
         {category ? (
-          <ProductGrid products={categoryProducts} columns={4} emptyTitle="No products found" emptyMessage="Try another category or search for products." />
+          isLoading && allProducts.length === 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-[3/4] rounded-[var(--radius-md)] bg-linen-50 animate-pulse" />
+              ))}
+            </div>
+          ) : (
+            <ProductGrid products={categoryProducts} columns={4} emptyTitle="No products found" emptyMessage="Try another category or search for products." />
+          )
         ) : (
           <div className="rounded-[var(--radius-lg)] border border-border bg-white p-8 text-center">
             <p className="text-sm text-charcoal-600 mb-4">We could not find that category.</p>

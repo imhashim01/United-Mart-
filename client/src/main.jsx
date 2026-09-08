@@ -10,19 +10,23 @@ import { loadSettings } from "./data/settingsData.js";
 
 function AuthBootstrap() {
   const hydrate = useAuthStore((state) => state.hydrate);
-  const [catalogReady, setCatalogReady] = useState(false);
+  const [shellReady, setShellReady] = useState(false);
 
   useEffect(() => {
     hydrate();
-    // Fetch the live catalog from the real backend before rendering pages
-    // that read it — this is what keeps every device/browser in sync,
-    // instead of each one showing its own stale local copy.
-    Promise.all([loadProducts(), loadCategories(), loadBrands(), loadSettings()]).finally(() => {
-  setCatalogReady(true);
-});
+    // Categories, brands, and settings are small — the site shell (nav,
+    // footer, homepage layout) only needs these to render correctly.
+    // Products (800+) load in the background instead of blocking the
+    // whole app — pages that need them use useProductsQuery() and show
+    // their own loading state, rather than the entire site waiting on
+    // every product downloading first.
+    Promise.all([loadCategories(), loadBrands(), loadSettings()]).finally(() => {
+      setShellReady(true);
+    });
+    loadProducts();
   }, [hydrate]);
 
-  if (!catalogReady) {
+  if (!shellReady) {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ width: 32, height: 32, border: "3px solid #E4E1D8", borderTopColor: "#173A2E", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
