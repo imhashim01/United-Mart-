@@ -103,6 +103,16 @@ export default function Header() {
                 </Link>
               </>
             )}
+            {token && user && (
+              <button
+                type="button"
+                onClick={() => { clearAuth(); navigate('/'); }}
+                aria-label="Logout"
+                className="flex sm:hidden h-10 w-10 items-center justify-center rounded-full hover:bg-linen-50 transition-colors"
+              >
+                <LogOut size={20} className="text-charcoal-900" />
+              </button>
+            )}
             <Link
               to="/cart"
               aria-label="Cart"
@@ -157,6 +167,26 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
+            {token && user && (
+              <div className="flex items-center justify-between gap-4 py-3 border-t border-border">
+                <div className="min-w-0">
+                  <p className="text-xs text-charcoal-600">Signed in as</p>
+                  <p className="truncate text-sm font-medium text-charcoal-900">{displayName}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearAuth();
+                    setMobileOpen(false);
+                    navigate('/');
+                  }}
+                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-charcoal-900 hover:bg-linen-50"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </div>
+            )}
           </div>
         </motion.nav>
       )}

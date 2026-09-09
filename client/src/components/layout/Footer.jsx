@@ -2,7 +2,6 @@ import { Facebook, Instagram, MapPin, Phone, Mail } from "lucide-react";
 import { Link } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
 import { useEffect, useState } from "react";
-import { getSettings, getPersistedCategoryObjects } from "../../utils/persistedData";
 import { getPersistedSettings } from "../../utils/persistedData";
 import { getCategoryObjects } from "../../data/productsData";
 const FOOTER_COLUMNS = [
