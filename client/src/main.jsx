@@ -8,6 +8,14 @@ import { useAuthStore } from "./features/auth/hooks/useAuth.js";
 import { loadProducts, loadCategories, loadBrands } from "./data/productsData.js";
 import { loadSettings } from "./data/settingsData.js";
 
+if ("serviceWorker" in navigator && import.meta.env.PROD) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((error) => {
+      console.error("Service worker registration failed:", error);
+    });
+  });
+}
+
 function AuthBootstrap() {
   const hydrate = useAuthStore((state) => state.hydrate);
   const [shellReady, setShellReady] = useState(false);
