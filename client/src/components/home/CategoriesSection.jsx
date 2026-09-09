@@ -1,11 +1,22 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import SectionHeader from "../ui/SectionHeader";
-import { getCategories } from "../../data/homeData";
+import { getCategoryObjects } from "../../data/productsData";
+import useProductsQuery from "../../hooks/useProductsQuery";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
+const FALLBACK_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80";
+
 export default function CategoriesSection() {
-  const categories = getCategories();
+  const { data: products = [] } = useProductsQuery();
+
+  const categories = getCategoryObjects().map((category) => ({
+    id: category.id,
+    name: category.name,
+    slug: category.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+    image: category.image ?? FALLBACK_CATEGORY_IMAGE,
+    itemCount: products.filter((p) => p.category === category.name).length,
+  }));
 
   return (
     <section id="categories" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">
