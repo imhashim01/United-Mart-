@@ -1,5 +1,6 @@
 import usePageTitle from "../hooks/usePageTitle";
 import { useParams, Link, Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { ShoppingBasket, Truck, ShieldCheck, ChevronRight } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
@@ -14,14 +15,27 @@ import ProductGallery from "../features/products/components/ProductGallery";
 import ShareButtons from "../features/products/components/ShareButtons";
 import RelatedProducts from "../features/products/components/RelatedProducts";
 import ProductReviews from "../features/reviews/components/ProductReviews";
-import { getProductById, getRelatedProducts, slugify } from "../data/productsData";
+import { getProductById, getRelatedProducts, slugify, fetchProductById } from "../data/productsData";
 import { formatPrice } from "../utils/formatCurrency";
 import { useCartStore } from "../store/cartStore";
 import { fadeUp } from "../animations/variants";
 
 export default function ProductDetailsPage() {
   const { id } = useParams();
-  const product = useMemo(() => getProductById(id), [id]);
+  const cachedProduct = getProductById(id);
+
+  // The shared catalog cache might not be populated yet (it now loads in
+  // the background, not before the app renders) — this fetches the one
+  // product this page actually needs directly, instead of waiting on or
+  // being wrongly bounced by an incomplete bulk cache.
+  const { data: product, isLoading } = useQuery({
+    queryKey: ["product", id],
+    queryFn: () => fetchProductById(id),
+    initialData: cachedProduct ?? undefined,
+    enabled: !!id,
+    staleTime: 5 * 60 * 1000,
+  });
+
   const [qty, setQty] = useState(1);
   const [selectedVariantId, setSelectedVariantId] = useState(null);
 
@@ -39,7 +53,7 @@ export default function ProductDetailsPage() {
     } else {
       setSelectedVariantId(null);
     }
-  }, [id]);
+  }, [id, product]);
 
   useEffect(() => {
     if (!product?.variants?.length) {
@@ -54,17 +68,52 @@ export default function ProductDetailsPage() {
     }
   }, [product, selectedVariantId]);
 
-  if (!product) return <Navigate to="/" replace />;
-  usePageTitle(product.name, product.description || `Buy ${product.name} online in Sukkur — fast delivery with United Mart Sukkur.`);
-  const selectedVariant = product.variants?.find((variant) => variant.id === selectedVariantId) ?? null;
+  const selectedVariant = product?.variants?.find((variant) => variant.id === selectedVariantId) ?? null;
+
   const galleryImages = useMemo(() => {
+    if (!product) return [];
     const images = selectedVariant?.images?.length ? selectedVariant.images : product.images;
     return Array.isArray(images)
       ? images
           .map((img) => (typeof img === "string" ? img : img.imageUrl || img.url || img.thumbnailUrl))
           .filter(Boolean)
       : [];
-  }, [product.images, selectedVariant]);
+  }, [product, selectedVariant]);
+
+  usePageTitle(
+    product?.name ?? "Product",
+    product ? (product.description || `Buy ${product.name} online in Sukkur — fast delivery with United Mart Sukkur.`) : undefined
+  );
+
+  const related = useMemo(() => (product ? getRelatedProducts(product) : []), [product]);
+
+  // Only redirect once we're actually sure it doesn't exist — not while
+  // it's still loading, which would otherwise bounce a real visitor to
+  // the homepage before their direct product link even had a chance to load.
+  if (!isLoading && !product) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-linen-50 flex flex-col">
+        <Header />
+        <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
+          <div className="grid lg:grid-cols-2 gap-10 lg:gap-14 animate-pulse">
+            <div className="aspect-square rounded-[var(--radius-lg)] bg-white border border-border" />
+            <div className="space-y-4">
+              <div className="h-4 w-24 rounded bg-linen-50" />
+              <div className="h-8 w-3/4 rounded bg-linen-50" />
+              <div className="h-6 w-1/3 rounded bg-linen-50" />
+              <div className="h-24 w-full rounded bg-linen-50" />
+            </div>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   const displayPrice = selectedVariant
     ? selectedVariant.discountPrice != null
       ? selectedVariant.discountPrice
@@ -76,7 +125,6 @@ export default function ProductDetailsPage() {
   const stockCount = selectedVariant?.stock ?? product.stockCount;
   const outOfStock = stockCount <= 0;
   const cartItem = items.find((i) => i.id === (selectedVariant ? `${product.id}:${selectedVariant.id}` : product.id));
-  const related = getRelatedProducts(product);
 
   const handleAddToCart = () => {
     addItem(product, qty, selectedVariant?.id);
@@ -88,7 +136,6 @@ export default function ProductDetailsPage() {
       <Header />
 
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
-        {/* Breadcrumb */}
         <nav className="flex items-center gap-1.5 text-sm text-charcoal-600 mb-6 flex-wrap">
           <Link to="/" className="hover:text-orchard-700 transition-colors">Home</Link>
           <ChevronRight size={14} />
@@ -100,12 +147,10 @@ export default function ProductDetailsPage() {
         </nav>
 
         <div className="grid lg:grid-cols-2 gap-10 lg:gap-14">
-          {/* Gallery */}
           <motion.div variants={fadeUp} initial="hidden" animate="visible">
             <ProductGallery images={galleryImages} productName={product.name} />
           </motion.div>
 
-          {/* Info panel */}
           <motion.div
             variants={fadeUp}
             initial="hidden"
@@ -189,7 +234,6 @@ export default function ProductDetailsPage() {
               {product.description}
             </p>
 
-            {/* Quantity + Add to cart */}
             <div className="flex items-center gap-3 mb-4">
               {cartItem ? (
                 <QuantitySelector
@@ -230,7 +274,6 @@ export default function ProductDetailsPage() {
               <ShareButtons productName={product.name} />
             </div>
 
-            {/* Trust signals */}
             <div className="grid grid-cols-2 gap-3 pt-6 border-t border-border">
               <div className="flex items-center gap-2.5 text-sm text-charcoal-600">
                 <Truck size={18} className="text-orchard-700 shrink-0" />

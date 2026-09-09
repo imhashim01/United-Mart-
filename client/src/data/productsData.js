@@ -284,3 +284,7 @@ export const getPriceRange = () => {
   const prices = cachedProducts.map((p) => getEffectiveProductPrice(p));
   return { min: Math.min(...prices), max: Math.max(...prices) };
 };
+export const fetchProductById = async (id) => {
+  const { data } = await api.get(`/products/${id}`);
+  return normalizeProduct(mapApiProduct(data.data), `product-${id}`);
+};
