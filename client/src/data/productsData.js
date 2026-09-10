@@ -165,6 +165,7 @@ const mapApiCategory = (apiCategory) => ({
   name: apiCategory.name,
   status: apiCategory.isActive === false ? "Inactive" : "Active",
   image: apiCategory.image?.url ?? apiCategory.image ?? "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80",
+  productCount: apiCategory.productCount ?? 0,
 });
 
 const mapApiBrand = (apiBrand) => ({

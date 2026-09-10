@@ -2,6 +2,33 @@ import Category from '../models/categoryModel.js';
 import { ApiError } from '../../../utils/ApiError.js';
 import { ApiFeatures, buildPaginationMeta } from '../../../utils/apiFeatures.js';
 import { deleteFromCloudinary, uploadBufferToCloudinary } from '../../../config/cloudinary.js';
+import Product from '../../products/models/productModel.js';
+
+// A count is cheap for the database to compute directly via aggregation —
+// no need for the frontend to download the full product catalog just to
+// count items per category. Merges primary category assignments with
+// additionalCategories, since a product can belong to more than one.
+const getProductCountsByCategory = async () => {
+  const primaryCounts = await Product.aggregate([
+    { $match: { isActive: true } },
+    { $group: { _id: '$category', count: { $sum: 1 } } },
+  ]);
+
+  const additionalCounts = await Product.aggregate([
+    { $match: { isActive: true, additionalCategories: { $exists: true, $ne: [] } } },
+    { $unwind: '$additionalCategories' },
+    { $group: { _id: '$additionalCategories', count: { $sum: 1 } } },
+  ]);
+
+  const countMap = new Map();
+  [...primaryCounts, ...additionalCounts].forEach(({ _id, count }) => {
+    if (!_id) return;
+    const key = _id.toString();
+    countMap.set(key, (countMap.get(key) || 0) + count);
+  });
+
+  return countMap;
+};
 
 export const listCategories = async (queryString) => {
   const total = await Category.countDocuments(new ApiFeatures(Category.find(), queryString).filter().query.getFilter());
@@ -13,7 +40,14 @@ export const listCategories = async (queryString) => {
     .paginate();
 
   const categories = await features.query;
-  return { categories, meta: buildPaginationMeta({ ...features.pagination, total }) };
+  const countMap = await getProductCountsByCategory();
+
+  const categoriesWithCounts = categories.map((category) => {
+    const obj = category.toObject ? category.toObject() : category;
+    return { ...obj, productCount: countMap.get(category._id.toString()) || 0 };
+  });
+
+  return { categories: categoriesWithCounts, meta: buildPaginationMeta({ ...features.pagination, total }) };
 };
 
 export const getCategoryTree = async () => {
