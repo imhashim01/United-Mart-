@@ -2,6 +2,8 @@ import { Router } from 'express';
 import { protect, authorize } from '../../../middlewares/auth.js';
 import { validate } from '../../../middlewares/validate.js';
 import { uploadImage } from '../../../middlewares/upload.js';
+import { cachePublic } from '../../../middlewares/cachePublic.js';
+
 import {
   createBrand,
   deleteBrand,
@@ -14,8 +16,8 @@ import { createBrandSchema, listBrandsQuerySchema, updateBrandSchema } from '../
 
 const router = Router();
 
-router.get('/', validate(listBrandsQuerySchema, 'query'), listBrands);
-router.get('/:id', getBrand);
+router.get('/', cachePublic(60), validate(listBrandsQuerySchema, 'query'), listBrands);
+router.get('/:id', cachePublic(120), getBrand);
 
 router.use(protect, authorize('admin', 'manager'));
 router.post('/', validate(createBrandSchema), createBrand);

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { protect, authorize } from '../../../middlewares/auth.js';
 import { validate } from '../../../middlewares/validate.js';
 import { uploadImage } from '../../../middlewares/upload.js';
+import { cachePublic } from '../../../middlewares/cachePublic.js';
 import {
   adjustStock,
   createProduct,
@@ -27,12 +28,12 @@ import {
 
 const router = Router();
 
-router.get('/', validate(listProductsQuerySchema, 'query'), listProducts);
+router.get('/', cachePublic(60), validate(listProductsQuerySchema, 'query'), listProducts);
 router.get('/featured', getFeaturedProducts);
-router.get('/slug/:slug', getProductBySlug);
+router.get('/slug/:slug', cachePublic(120), getProductBySlug);
 router.get('/low-stock', protect, authorize('admin', 'manager'), getLowStockProducts);
 router.get('/out-of-stock', protect, authorize('admin', 'manager'), getOutOfStockProducts);
-router.get('/:id', getProduct);
+router.get('/:id', cachePublic(120), getProduct);
 
 router.use(protect, authorize('admin', 'manager'));
 router.post('/', validate(createProductSchema), createProduct);
