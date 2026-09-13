@@ -35,8 +35,7 @@ export default function HeroBanner() {
           </motion.h1>
 
           <motion.p variants={fadeUp} className="text-white/75 text-base md:text-lg max-w-md mb-8">
-            From Sindhri mangoes to daily dairy — order fresh, order local,
-            delivered to your door across Sukkur &amp; Rohri.
+          No stale stock, no guesswork. Just fresh groceries, checked by hand, delivered to your door the same day.
           </motion.p>
 
           <motion.div variants={fadeUp} className="flex flex-wrap items-center gap-4">

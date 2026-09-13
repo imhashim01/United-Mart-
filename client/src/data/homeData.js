@@ -40,7 +40,7 @@ export const getBrands = () =>
     .map((b) => ({ id: b.id, name: b.name, logo: b.logo }));
 
 export const testimonials = [
-  { id: "t-1", name: "Ayesha Raza", role: "Verified Buyer, Sukkur", quote: "The mangoes arrived riper and fresher than what I get at the local market — and same-day delivery actually meant same day.", rating: 5, avatar: "https://i.pravatar.cc/100?img=47" },
+  { id: "t-1", name: "Ayesha Raza", role: "Verified Buyer, Sukkur", quote: "Finally an online grocery option in Sukkur that doesn't feel like a gamble. Easy to order, real tracking, no surprises.", rating: 5, avatar: "https://i.pravatar.cc/100?img=47" },
   { id: "t-2", name: "Bilal Ahmed", role: "Verified Buyer, Sukkur", quote: "Ordering groceries used to eat up my whole Saturday. United Mart cut it down to ten minutes on my phone.", rating: 5, avatar: "https://i.pravatar.cc/100?img=12" },
   { id: "t-3", name: "Sana Khan", role: "Verified Buyer, Rohri", quote: "Packaging is careful, prices are fair, and their reward points actually add up to real savings every month.", rating: 4, avatar: "https://i.pravatar.cc/100?img=32" },
   { id: "t-4", name: "Farhan Malik", role: "Verified Buyer, Sukkur", quote: "Customer support resolved a delivery mix-up within minutes. That kind of responsiveness is rare for grocery apps here.", rating: 5, avatar: "https://i.pravatar.cc/100?img=51" },
