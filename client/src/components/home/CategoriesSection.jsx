@@ -5,6 +5,7 @@ import SectionHeader from "../ui/SectionHeader";
 import { getCategoryObjects } from "../../data/productsData";
 import { fetchProductsByCategory } from "../../data/homeSectionsApi";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
+import { optimizeCloudinaryUrl } from "../../utils/cloudinaryTransform";
 
 const FALLBACK_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80";
 
@@ -57,12 +58,12 @@ export default function CategoriesSection() {
             >
               <div className="relative w-full aspect-square rounded-[var(--radius-lg)] overflow-hidden bg-linen-50 border border-border mb-2.5">
                 <motion.img
-                  whileHover={{ scale: 1.06 }}
-                  transition={{ duration: 0.35, ease: "easeOut" }}
-                  src={cat.image}
-                  alt={cat.name}
-                  className="w-full h-full object-cover"
-                />
+  whileHover={{ scale: 1.06 }}
+  transition={{ duration: 0.35, ease: "easeOut" }}
+  src={optimizeCloudinaryUrl(cat.image, { width: 300 })}
+  alt={cat.name}
+  className="w-full h-full object-cover"
+/>
               </div>
               <p className="text-sm font-semibold text-charcoal-900 group-hover:text-orchard-700 transition-colors leading-tight">
                 {cat.name}

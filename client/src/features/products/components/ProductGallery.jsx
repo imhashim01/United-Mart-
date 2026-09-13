@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import ImageZoom from "./ImageZoom";
+import { optimizeCloudinaryUrl } from "../../../utils/cloudinaryTransform";
 
 export default function ProductGallery({ images, productName }) {
   const [activeIndex, setActiveIndex] = useState(0);
@@ -26,7 +27,7 @@ export default function ProductGallery({ images, productName }) {
             transition={{ duration: 0.2 }}
             className="absolute inset-0"
           >
-            <ImageZoom src={normalizedImages[activeIndex]} alt={`${productName} — image ${activeIndex + 1}`} />
+            <ImageZoom src={optimizeCloudinaryUrl(normalizedImages[activeIndex], { width: 800 })} alt={`${productName} — image ${activeIndex + 1}`} />
           </motion.div>
         </AnimatePresence>
       </div>
@@ -44,7 +45,7 @@ export default function ProductGallery({ images, productName }) {
                 activeIndex === i ? "border-orchard-900" : "border-transparent hover:border-border-strong"
               )}
             >
-              <img src={typeof img === "string" ? img : img.imageUrl || img.url || img.thumbnailUrl} alt="" className="w-full h-full object-cover" />
+              <img src={optimizeCloudinaryUrl(typeof img === "string" ? img : img.imageUrl || img.url || img.thumbnailUrl, { width: 100 })} alt="" className="w-full h-full object-cover" />
             </button>
           ))}
         </div>

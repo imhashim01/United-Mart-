@@ -8,11 +8,13 @@ import QuantitySelector from "./QuantitySelector";
 import { cardHover, imageZoom } from "../../animations/variants";
 import { formatPrice } from "../../utils/formatCurrency";
 import { useCartStore } from "../../store/cartStore";
+import { optimizeCloudinaryUrl } from "../../utils/cloudinaryTransform";
 
 export default function ProductCard({ product, rank }) {
   const items = useCartStore((s) => s.items);
   const addItem = useCartStore((s) => s.addItem);
   const updateQty = useCartStore((s) => s.updateQty);
+  
 
   const defaultVariant = product.variants?.length ? product.variants.find((variant) => variant.isDefault) ?? product.variants[0] : null;
   const displayPrice = defaultVariant ? defaultVariant.discountPrice ?? defaultVariant.price : product.price;
@@ -20,7 +22,7 @@ export default function ProductCard({ product, rank }) {
   const outOfStock = defaultVariant ? defaultVariant.stock <= 0 : product.inStock === false;
   const cartItem = items.find((i) => i.id === (defaultVariant ? `${product.id}:${defaultVariant.id}` : product.id));
   const qty = cartItem?.qty ?? 0;
-  const image = product.images?.[0] ?? product.image;
+  const image = optimizeCloudinaryUrl(product.images?.[0] ?? product.image, { width: 300 });
   const variantDiscount = defaultVariant && defaultVariant.discountPrice != null && defaultVariant.price > defaultVariant.discountPrice
     ? Math.round(((defaultVariant.price - defaultVariant.discountPrice) / defaultVariant.price) * 100)
     : 0;
