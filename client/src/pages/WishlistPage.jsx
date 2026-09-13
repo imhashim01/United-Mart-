@@ -1,24 +1,42 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart } from "lucide-react";
+import { useQueries } from "@tanstack/react-query";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import ProductGrid from "../features/products/components/ProductGrid";
 import { useWishlistStore } from "../store/wishlistStore";
-import { getProducts } from "../data/productsData";
+import { fetchProductById } from "../data/productsData";
 
 export default function WishlistPage() {
   const ids = useWishlistStore((s) => s.ids);
-  window.scrollTo({ top: 0, behavior: "instant" });
-  const wishlistedProducts = getProducts().filter((p) => ids.includes(p.id));
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
+  // Same queryKey shape as ProductDetailsPage's single-product fetch — if
+  // someone already viewed one of these products, it's served from cache
+  // instantly here too, instead of every page re-fetching independently.
+  const productQueries = useQueries({
+    queries: ids.map((id) => ({
+      queryKey: ["product", id],
+      queryFn: () => fetchProductById(id),
+      staleTime: 5 * 60 * 1000,
+    })),
+  });
+
+  const wishlistedProducts = productQueries.map((q) => q.data).filter(Boolean);
+  const isLoading = ids.length > 0 && productQueries.some((q) => q.isLoading);
 
   return (
     <div className="min-h-screen bg-linen-50 flex flex-col">
       <Header />
       <main className="flex-1 max-w-7xl mx-auto w-full px-4 md:px-6 py-8">
         <h1 className="font-display text-2xl md:text-3xl text-orchard-900 mb-1.5">Your Wishlist</h1>
-        <p className="text-sm text-charcoal-600 mb-6">{wishlistedProducts.length} saved items</p>
+        <p className="text-sm text-charcoal-600 mb-6">{ids.length} saved items</p>
 
-        {wishlistedProducts.length === 0 ? (
+        {ids.length === 0 ? (
           <div className="flex flex-col items-center justify-center text-center py-16 border border-dashed border-border rounded-[var(--radius-lg)]">
             <div className="h-14 w-14 rounded-full bg-linen-50 flex items-center justify-center mb-4">
               <Heart size={24} className="text-charcoal-300" />
@@ -28,6 +46,12 @@ export default function WishlistPage() {
             <Link to="/shop" className="h-10 px-5 flex items-center rounded-[var(--radius-md)] bg-orchard-900 text-white text-sm font-semibold">
               Browse Products
             </Link>
+          </div>
+        ) : isLoading ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: ids.length }).map((_, i) => (
+              <div key={i} className="aspect-[3/4] rounded-[var(--radius-md)] bg-linen-50 animate-pulse" />
+            ))}
           </div>
         ) : (
           <ProductGrid products={wishlistedProducts} columns={4} animate={false} />

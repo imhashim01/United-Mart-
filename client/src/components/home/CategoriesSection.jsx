@@ -1,12 +1,16 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import SectionHeader from "../ui/SectionHeader";
 import { getCategoryObjects } from "../../data/productsData";
+import { fetchProductsByCategory } from "../../data/homeSectionsApi";
 import { staggerContainer, fadeUp, viewportOnce } from "../../animations/variants";
 
 const FALLBACK_CATEGORY_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80";
 
 export default function CategoriesSection() {
+  const queryClient = useQueryClient();
+
   const categories = getCategoryObjects().map((category) => ({
     id: category.id,
     name: category.name,
@@ -14,6 +18,18 @@ export default function CategoriesSection() {
     image: category.image ?? FALLBACK_CATEGORY_IMAGE,
     itemCount: category.productCount,
   }));
+
+  // Starts fetching a category's products the moment someone hovers (or
+  // touches, on mobile) — by the time the click/tap actually navigates,
+  // the data is often already cached, so the category page can render
+  // instantly instead of showing its own loading state.
+  const prefetchCategory = (categoryId) => {
+    queryClient.prefetchQuery({
+      queryKey: ["category-products", categoryId],
+      queryFn: () => fetchProductsByCategory(categoryId),
+      staleTime: 5 * 60 * 1000,
+    });
+  };
 
   return (
     <section id="categories" className="max-w-7xl mx-auto px-4 md:px-6 py-12 md:py-16">
@@ -35,6 +51,8 @@ export default function CategoriesSection() {
           <motion.div key={cat.id} variants={fadeUp}>
             <Link
               to={`/category/${cat.slug}`}
+              onMouseEnter={() => prefetchCategory(cat.id)}
+              onTouchStart={() => prefetchCategory(cat.id)}
               className="group flex flex-col items-center text-center"
             >
               <div className="relative w-full aspect-square rounded-[var(--radius-lg)] overflow-hidden bg-linen-50 border border-border mb-2.5">

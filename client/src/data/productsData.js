@@ -137,6 +137,7 @@ const mapApiProduct = (apiProduct) => {
     slug: apiProduct.slug,
     description: apiProduct.description ?? "",
     category: apiProduct.category?.name ?? "Other",
+    categoryId: apiProduct.category?.id ?? apiProduct.category?._id,
     additionalCategoryNames: (apiProduct.additionalCategories ?? []).map((c) => c.name),
     categorySlug: apiProduct.category?.slug,
     brand: apiProduct.brand?.name ?? "Unbranded",

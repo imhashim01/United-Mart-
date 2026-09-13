@@ -1,28 +1,27 @@
 import usePageTitle from "../hooks/usePageTitle";
 import { Link, useParams } from "react-router-dom";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import ProductGrid from "../features/products/components/ProductGrid";
 import { getCategories } from "../data/homeData";
-import useProductsQuery from "../hooks/useProductsQuery";
+import { fetchProductsByCategory } from "../data/homeSectionsApi";
 
 export default function CategoryPage() {
   const { slug } = useParams();
-  const { data: allProducts = [], isLoading } = useProductsQuery();
+  const category = getCategories().find((item) => item.slug === slug);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [slug]);
 
-  const category = getCategories().find((item) => item.slug === slug);
-  const categoryProducts = category
-    ? allProducts.filter(
-        (product) =>
-          product.category === category.name ||
-          product.additionalCategoryNames?.includes(category.name)
-      )
-    : [];
+  const { data: categoryProducts = [], isLoading } = useQuery({
+    queryKey: ["category-products", category?.id],
+    queryFn: () => fetchProductsByCategory(category.id),
+    enabled: !!category,
+    staleTime: 5 * 60 * 1000,
+  });
 
   usePageTitle(
     category ? `${category.name} — Shop Online` : "Category Not Found",
@@ -41,7 +40,11 @@ export default function CategoryPage() {
           </h1>
           <p className="text-sm text-charcoal-600">
             {category ? (
-              <>Browse {categoryProducts.length} products in <strong>{category.name}</strong>.</>
+              isLoading ? (
+                "Loading products..."
+              ) : (
+                <>Browse {categoryProducts.length} products in <strong>{category.name}</strong>.</>
+              )
             ) : (
               <>This category does not exist. Please choose a valid category.</>
             )}
@@ -49,7 +52,7 @@ export default function CategoryPage() {
         </div>
 
         {category ? (
-          isLoading && allProducts.length === 0 ? (
+          isLoading ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
               {Array.from({ length: 8 }).map((_, i) => (
                 <div key={i} className="aspect-[3/4] rounded-[var(--radius-md)] bg-linen-50 animate-pulse" />

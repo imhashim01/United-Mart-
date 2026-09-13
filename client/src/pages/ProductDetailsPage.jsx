@@ -15,7 +15,8 @@ import ProductGallery from "../features/products/components/ProductGallery";
 import ShareButtons from "../features/products/components/ShareButtons";
 import RelatedProducts from "../features/products/components/RelatedProducts";
 import ProductReviews from "../features/reviews/components/ProductReviews";
-import { getProductById, getRelatedProducts, slugify, fetchProductById } from "../data/productsData";
+import { getProductById, slugify, fetchProductById } from "../data/productsData";
+import { fetchProductsByCategory } from "../data/homeSectionsApi";
 import { formatPrice } from "../utils/formatCurrency";
 import { useCartStore } from "../store/cartStore";
 import { fadeUp } from "../animations/variants";
@@ -85,7 +86,13 @@ export default function ProductDetailsPage() {
     product ? (product.description || `Buy ${product.name} online in Sukkur — fast delivery with United Mart Sukkur.`) : undefined
   );
 
-  const related = useMemo(() => (product ? getRelatedProducts(product) : []), [product]);
+  const { data: relatedRaw = [] } = useQuery({
+  queryKey: ["related-products", product?.categoryId],
+  queryFn: () => fetchProductsByCategory(product.categoryId, 8),
+  enabled: !!product?.categoryId,
+  staleTime: 5 * 60 * 1000,
+});
+const related = relatedRaw.filter((p) => p.id !== product?.id).slice(0, 4);
 
   // Only redirect once we're actually sure it doesn't exist — not while
   // it's still loading, which would otherwise bounce a real visitor to

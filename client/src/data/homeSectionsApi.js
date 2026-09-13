@@ -16,3 +16,5 @@ const fetchLightProducts = async (params) => {
 export const fetchFeaturedProducts = () => fetchLightProducts({ isFeatured: true, limit: 8 });
 export const fetchBestSellers = () => fetchLightProducts({ isBestSeller: true, limit: 5 });
 export const fetchTodaysDeals = () => fetchLightProducts({ isTodaysDeal: true, limit: 6 });
+export const fetchProductsByCategory = (categoryId, limit = 200) =>
+  fetchLightProducts({ category: categoryId, limit });

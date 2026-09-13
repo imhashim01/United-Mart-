@@ -85,6 +85,12 @@ productSchema.index({ name: 'text', description: 'text', tags: 'text' });
 productSchema.index({ category: 1, isActive: 1 });
 productSchema.index({ price: 1 });
 productSchema.index({ 'variants.sku': 1 });
+// Match the exact fields the homepage's Featured/Best Sellers/Today's
+// Deals sections filter on — without these, MongoDB scans every product
+// document to answer each of those three queries instead of using an index.
+productSchema.index({ isFeatured: 1, isActive: 1 });
+productSchema.index({ isBestSeller: 1, isActive: 1 });
+productSchema.index({ isTodaysDeal: 1, isActive: 1 });
 
 productSchema.virtual('defaultVariant').get(function defaultVariant() {
   if (!this.variants?.length) return null;
