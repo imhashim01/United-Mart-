@@ -9,7 +9,8 @@
     "dev": "nodemon server.js",
     "seed": "node src/database/seeders/index.js",
     "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js --detectOpenHandles",
-    "lint": "eslint src --ext .js"
+    "lint": "eslint src --ext .js",
+    "migrate:images": "node src/database/scripts/migrateImagesToCloudinary.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
