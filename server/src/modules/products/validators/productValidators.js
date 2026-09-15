@@ -120,7 +120,9 @@ export const adjustStockSchema = Joi.object({
 
 export const listProductsQuerySchema = Joi.object({
   page: Joi.number().integer().min(1),
-  limit: Joi.number().integer().min(1).max(200),
+  // Matches apiFeatures.js's pagination ceiling — the storefront fetches the
+  // whole catalog in one request rather than paging through it.
+  limit: Joi.number().integer().min(1).max(1000),
   category: Joi.string(),
   brand: Joi.string(),
   isActive: Joi.boolean(),
