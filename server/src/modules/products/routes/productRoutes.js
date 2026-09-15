@@ -29,7 +29,7 @@ import {
 const router = Router();
 
 router.get('/', cachePublic(60), validate(listProductsQuerySchema, 'query'), listProducts);
-router.get('/featured', getFeaturedProducts);
+router.get('/featured', cachePublic(60), getFeaturedProducts);
 router.get('/slug/:slug', cachePublic(120), getProductBySlug);
 router.get('/low-stock', protect, authorize('admin', 'manager'), getLowStockProducts);
 router.get('/out-of-stock', protect, authorize('admin', 'manager'), getOutOfStockProducts);

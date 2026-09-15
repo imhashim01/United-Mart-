@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "react-hot-toast";
 import App from "./App.jsx";
+import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import "./styles/index.css";
 import { useAuthStore } from "./features/auth/hooks/useAuth.js";
 import { loadProducts, loadCategories, loadBrands } from "./data/productsData.js";
@@ -62,7 +63,9 @@ window.__UMS_REACT_ROOT__ = root;
 root.render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <AuthBootstrap />
+      <ErrorBoundary>
+        <AuthBootstrap />
+      </ErrorBoundary>
       <Toaster
         position="bottom-center"
         toastOptions={{
