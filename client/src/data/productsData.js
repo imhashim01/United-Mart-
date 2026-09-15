@@ -205,13 +205,32 @@ const fetchAllPages = async (endpoint, maxLimit = 100, extraParams = {}) => {
   return results;
 };
 
-export const loadProducts = async () => {
+// Wraps a loader so that overlapping callers share one in-flight request
+// instead of each firing their own full fetch — this is what previously let
+// useProductsQuery() kick off a second complete catalog re-fetch on top of
+// the one main.jsx already started at boot, whenever a shopper reached the
+// Shop/Category page before that first fetch had resolved.
+const dedupe = (loader) => {
+  let inFlight = null;
+  return () => {
+    if (!inFlight) {
+      inFlight = loader().finally(() => {
+        inFlight = null;
+      });
+    }
+    return inFlight;
+  };
+};
+
+export const loadProducts = dedupe(async () => {
   try {
     // Only request the fields the storefront actually renders — the full
     // product document (every variant's full image gallery, timestamps,
     // admin-only fields) was making each page several hundred KB larger
     // than it needed to be.
-    const rawList = await fetchAllPages("/products", 200, {
+    // 1000 comfortably covers the whole catalog in a single request instead
+    // of paging through it — matches the server's pagination ceiling.
+    const rawList = await fetchAllPages("/products", 1000, {
       fields: "name,slug,sku,description,price,discountPrice,unit,stock,category,additionalCategories,brand,images,variants,isFeatured,isBestSeller,isTodaysDeal,ratings",
     });
     cachedProducts = rawList.map((p, i) => normalizeProduct(mapApiProduct(p), `product-${i + 1}`));
@@ -219,9 +238,9 @@ export const loadProducts = async () => {
     console.error("Failed to load products from API:", error?.response?.data || error.message);
   }
   return cachedProducts;
-};
+});
 
-export const loadCategories = async () => {
+export const loadCategories = dedupe(async () => {
   try {
     const rawList = await fetchAllPages("/categories", 100);
     cachedCategories = rawList.map(mapApiCategory);
@@ -229,9 +248,9 @@ export const loadCategories = async () => {
     console.error("Failed to load categories from API:", error?.response?.data || error.message);
   }
   return cachedCategories;
-};
+});
 
-export const loadBrands = async () => {
+export const loadBrands = dedupe(async () => {
   try {
     const rawList = await fetchAllPages("/brands", 100);
     cachedBrands = rawList.map(mapApiBrand);
@@ -239,7 +258,7 @@ export const loadBrands = async () => {
     console.error("Failed to load brands from API:", error?.response?.data || error.message);
   }
   return cachedBrands;
-};
+});
 
 // Admin pages call these after a successful create/update/delete so every
 // open tab/device picks up the change on its next fetch.

@@ -48,7 +48,11 @@ export class ApiFeatures {
 
   paginate() {
     const page = Math.max(parseInt(this.queryString.page, 10) || 1, 1);
-    const limit = Math.min(parseInt(this.queryString.limit, 10) || 20, 100);
+    // Ceiling raised from 100: the storefront fetches the full ~700-product
+    // catalog in as few round trips as possible (fewer requests means fewer
+    // chances of hitting a cold Vercel serverless instance). Revisit this
+    // number if the catalog grows enough that a single page gets heavy.
+    const limit = Math.min(parseInt(this.queryString.limit, 10) || 20, 1000);
     const skip = (page - 1) * limit;
 
     this.query = this.query.skip(skip).limit(limit);
