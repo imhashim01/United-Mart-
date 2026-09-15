@@ -30,7 +30,11 @@ export default function AdminsPage() {
       try {
         setLoading(true);
         const { data } = await usersApi.listUsers({ limit: 100 });
-        setStaff(data.data || []);
+        // This page manages staff accounts only — customers have no business
+        // showing up here with a "remove from staff" delete action next to
+        // their name, since that action deactivates whatever account it's
+        // clicked on.
+        setStaff((data.data || []).filter((u) => u.role !== "customer"));
       } catch (error) {
         console.error('Failed to load admin users:', error?.response || error.message);
       } finally {
@@ -48,7 +52,7 @@ export default function AdminsPage() {
         </button>
       </div>
 
-      <AdminTableShell isEmpty={staff.length === 0}>
+      <AdminTableShell isEmpty={!loading && staff.length === 0}>
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-linen-50 text-left">

@@ -15,7 +15,7 @@ const normalizeCoupon = (coupon) => ({
   minSpend: coupon.minPurchaseAmount ?? 0,
   maxUses: coupon.usageLimit ?? 0,
   expiresAt: coupon.validUntil ? new Date(coupon.validUntil).toISOString().split("T")[0] : "",
-  status: coupon.isActive === false ? "Expired" : "Active",
+  status: coupon.isActive === false || (coupon.validUntil && new Date(coupon.validUntil) < new Date()) ? "Expired" : "Active",
   usedCount: coupon.usedCount ?? 0,
   validFrom: coupon.validFrom,
   validUntil: coupon.validUntil,

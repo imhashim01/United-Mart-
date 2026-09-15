@@ -77,7 +77,7 @@ export default function InvoicesPage() {
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2.5">
                     <Receipt size={15} className="text-charcoal-600" />
-                    <span className="font-medium text-charcoal-900">INV-{order.id.split("-")[1]}</span>
+                    <span className="font-medium text-charcoal-900">INV-{order.id.slice(-8).toUpperCase()}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3 text-charcoal-900">{order.customer.name}</td>
