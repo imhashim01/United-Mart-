@@ -4,6 +4,10 @@ import { ArrowRight, MessageCircleMore } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
 import logo from "../assets/images/logo.png";
+import { getSettings } from "../data/settingsData";
+import { formatPrice } from "../utils/formatCurrency";
+
+const { minimumOrderAmount, freeDeliveryThreshold } = getSettings();
 
 const deliveryInfoContent = (
   <div className="space-y-6 text-sm text-charcoal-700 leading-relaxed">
@@ -36,12 +40,12 @@ const deliveryInfoContent = (
 
     <div>
       <h2 className="text-lg font-semibold text-orchard-900">Minimum Order</h2>
-      <p className="mt-2">Rs. 1,000</p>
+      <p className="mt-2">{formatPrice(minimumOrderAmount)}</p>
     </div>
 
     <div>
       <h2 className="text-lg font-semibold text-orchard-900">Free Delivery</h2>
-      <p className="mt-2">Orders above Rs. 5,000</p>
+      <p className="mt-2">Orders above {formatPrice(freeDeliveryThreshold)}</p>
     </div>
 
     <div>
@@ -95,12 +99,12 @@ const faqsContent = (
 
     <div>
       <h2 className="text-base font-semibold text-orchard-900">What is the minimum order?</h2>
-      <p className="mt-2">Rs. 1,000</p>
+      <p className="mt-2">{formatPrice(minimumOrderAmount)}</p>
     </div>
 
     <div>
       <h2 className="text-base font-semibold text-orchard-900">When is delivery free?</h2>
-      <p className="mt-2">On orders above Rs. 5,000.</p>
+      <p className="mt-2">On orders above {formatPrice(freeDeliveryThreshold)}.</p>
     </div>
 
     <div>

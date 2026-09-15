@@ -53,7 +53,8 @@ if (process.env.NODE_ENV !== 'test') {
 const allowedOrigins = [
   'http://localhost:5173',
   'https://unitedmartsukkur.com',
-  'https://www.unitedmartsukkur.com'
+  'https://www.unitedmartsukkur.com',
+  'https://united-mart.vercel.app'
 ];
 
 app.use(cors({

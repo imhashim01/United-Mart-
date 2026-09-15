@@ -21,6 +21,7 @@ const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
 const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const RewardsPage = lazy(() => import("./pages/RewardsPage"));
 const InfoPage = lazy(() => import("./pages/InfoPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
 const PublicOrdersPage = lazy(() => import("./pages/OrdersPage"));
 const PublicOrderDetailsPage = lazy(() => import("./pages/PublicOrderDetailsPage"));
 
@@ -267,6 +268,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="*" element={<NotFoundPage />} />
         </Routes>
       </Suspense>
       <FloatingCartBar />
