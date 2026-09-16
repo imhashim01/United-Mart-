@@ -478,7 +478,17 @@ export default function ProductsPage() {
                         ? async (file) => {
                             const { data } = await productsApi.uploadProductImages(selectedProduct.id, [file]);
                             const images = data.data.images || [];
-                            return images[images.length - 1]?.url || "";
+                            const newest = images[images.length - 1];
+                            // /products/:id/images is a multi-image gallery
+                            // endpoint (it appends) — this field only shows
+                            // one cover photo, so clear out everything it
+                            // left behind and keep just the one just uploaded.
+                            await Promise.all(
+                              images
+                                .filter((img) => img.publicId !== newest?.publicId)
+                                .map((img) => productsApi.removeProductImage(selectedProduct.id, img.publicId).catch(() => {}))
+                            );
+                            return newest?.url || "";
                           }
                         : undefined
                     }
