@@ -213,34 +213,38 @@ export default function ProductsPage() {
       // The main image and variant images are uploaded separately via the
       // real Cloudinary endpoints (immediately when editing, or right after
       // create below) — never sent as part of this JSON payload.
-      variants: form.variants.length > 0
-        ? form.variants.map((variant, index) => {
-            const variantSku = String(variant.sku || `${slugify(productName)}-${index + 1}`).trim().toUpperCase();
-            return {
-              // Preserve the variant's real database id across saves — omitting
-              // it makes Mongoose mint a brand-new subdocument id every time,
-              // silently invalidating any variant id the UI (or anything else)
-              // was already holding onto, e.g. an in-progress image upload.
-              ...(selectedProduct && !variant.isNew ? { _id: variant.id } : {}),
-              name: variant.name.trim() || `Variant ${index + 1}`,
-              sku: variantSku,
-              price: Number(variant.price) || 0,
-              discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : undefined,
-              stock: Number(variant.stock) || 0,
-              unit: variant.unit.trim() || "pcs",
-              isDefault: Boolean(variant.isDefault),
-              images: Array.isArray(variant.images) && variant.images.length > 0
-                ? variant.images.map((img, i) => ({
-                    url: img.imageUrl || img.url || "",
-                    publicId: img.publicId,
-                    altText: img.altText || "",
-                    sortOrder: Number(img.sortOrder ?? i),
-                    isPrimary: Boolean(img.isPrimary),
-                  }))
-                : undefined,
-            };
-          })
-        : undefined,
+      // Always an array, even when empty — updateProduct only touches
+      // fields present in the request body, so once this dipped to
+      // `undefined` (the old `variants.length > 0 ? … : undefined` guard),
+      // JSON.stringify dropped the key entirely and removing a product's
+      // last variant silently left the old variants array untouched in
+      // the database, even though the rest of the save succeeded.
+      variants: form.variants.map((variant, index) => {
+        const variantSku = String(variant.sku || `${slugify(productName)}-${index + 1}`).trim().toUpperCase();
+        return {
+          // Preserve the variant's real database id across saves — omitting
+          // it makes Mongoose mint a brand-new subdocument id every time,
+          // silently invalidating any variant id the UI (or anything else)
+          // was already holding onto, e.g. an in-progress image upload.
+          ...(selectedProduct && !variant.isNew ? { _id: variant.id } : {}),
+          name: variant.name.trim() || `Variant ${index + 1}`,
+          sku: variantSku,
+          price: Number(variant.price) || 0,
+          discountPrice: variant.discountPrice !== "" && variant.discountPrice != null ? Number(variant.discountPrice) : undefined,
+          stock: Number(variant.stock) || 0,
+          unit: variant.unit.trim() || "pcs",
+          isDefault: Boolean(variant.isDefault),
+          images: Array.isArray(variant.images) && variant.images.length > 0
+            ? variant.images.map((img, i) => ({
+                url: img.imageUrl || img.url || "",
+                publicId: img.publicId,
+                altText: img.altText || "",
+                sortOrder: Number(img.sortOrder ?? i),
+                isPrimary: Boolean(img.isPrimary),
+              }))
+            : undefined,
+        };
+      }),
     };
 
     setSaving(true);

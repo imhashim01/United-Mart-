@@ -319,7 +319,20 @@ export const getPriceRange = () => {
   const prices = cachedProducts.map((p) => getEffectiveProductPrice(p));
   return { min: Math.min(...prices), max: Math.max(...prices) };
 };
+// The /product/:id route is fed both real Mongo ids (cart items, search
+// results) and slugs (product cards, i.e. every shared/bookmarked product
+// link) — the backend only accepts a raw id on /products/:id and 404s on a
+// slug there, so this has to pick the matching endpoint per value shape.
+// Getting this wrong is exactly why a shared product link 404ed into a
+// silent redirect home for anyone without that product already cached
+// locally (a first-time visitor, most of the time) — this endpoint is the
+// only data source they have; regular browsing usually never notices since
+// the in-memory cache resolves the slug locally first.
+const isMongoId = (value) => /^[0-9a-fA-F]{24}$/.test(value);
+
 export const fetchProductById = async (id) => {
-  const { data } = await api.get(`/products/${id}`);
+  const { data } = isMongoId(id)
+    ? await api.get(`/products/${id}`)
+    : await api.get(`/products/slug/${id}`);
   return normalizeProduct(mapApiProduct(data.data), `product-${id}`);
 };
