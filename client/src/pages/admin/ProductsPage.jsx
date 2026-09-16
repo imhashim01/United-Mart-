@@ -217,6 +217,11 @@ export default function ProductsPage() {
         ? form.variants.map((variant, index) => {
             const variantSku = String(variant.sku || `${slugify(productName)}-${index + 1}`).trim().toUpperCase();
             return {
+              // Preserve the variant's real database id across saves — omitting
+              // it makes Mongoose mint a brand-new subdocument id every time,
+              // silently invalidating any variant id the UI (or anything else)
+              // was already holding onto, e.g. an in-progress image upload.
+              ...(selectedProduct && !variant.isNew ? { _id: variant.id } : {}),
               name: variant.name.trim() || `Variant ${index + 1}`,
               sku: variantSku,
               price: Number(variant.price) || 0,

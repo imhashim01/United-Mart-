@@ -58,12 +58,25 @@ export const createProductSchema = Joi.object({
 });
 
 export const updateProductSchema = Joi.object({
+  // The frontend echoes an existing variant's real _id back on every save;
+  // without it here, `validate`'s stripUnknown silently drops it, Mongoose
+  // then treats every variant as brand new and mints a fresh _id for it —
+  // breaking anything that had captured the old id (e.g. an in-progress
+  // variant image upload, or an order line referencing that variant).
+  //
+  // Unlike the create schema, fields here must NOT carry a `.default(...)`:
+  // this schema validates a PARTIAL update, and Joi injects `.default()`
+  // values for any key the request simply didn't mention. `updateProduct`
+  // then $sets that injected value, so e.g. `images: Joi.array().default([])`
+  // silently wiped every product's images back to `[]` on every save that
+  // didn't happen to touch them — which main-image/variant-image uploads
+  // never do, since they go through their own dedicated endpoints.
   name: Joi.string().trim().min(2).max(200),
   description: Joi.string().trim(),
   shortDescription: Joi.string().trim().max(300).allow('', null),
   sku: Joi.string().trim().uppercase(),
   category: Joi.string().hex().length(24),
-  additionalCategories: Joi.array().items(Joi.string().hex().length(24)).default([]),
+  additionalCategories: Joi.array().items(Joi.string().hex().length(24)),
   brand: Joi.string().hex().length(24).allow(null, ''),
   price: Joi.number().min(0),
   discountPrice: Joi.number().min(0).allow(null),
@@ -80,7 +93,7 @@ export const updateProductSchema = Joi.object({
       sortOrder: Joi.number().integer().min(0).default(0),
       isPrimary: Joi.boolean().default(false),
     })
-  ).default([]),
+  ),
   isFeatured: Joi.boolean(),
   isBestSeller: Joi.boolean(),
   isTodaysDeal: Joi.boolean(),
@@ -88,6 +101,7 @@ export const updateProductSchema = Joi.object({
   variants: Joi.array()
     .items(
       Joi.object({
+        _id: Joi.string().hex().length(24),
         name: Joi.string().trim().max(100).allow('', null),
         sku: Joi.string().trim().uppercase().required(),
         price: Joi.number().min(0).required(),
