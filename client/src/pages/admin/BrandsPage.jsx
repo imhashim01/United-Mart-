@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
+import ImageUploadField from "../../components/admin/ImageUploadField";
 import { getBrandObjects, getProducts, refreshBrands } from "../../data/productsData";
 import * as brandsApi from "../../features/admin/brands/api/brandsApi";
 
@@ -29,7 +30,7 @@ export default function BrandsPage() {
   const openAddModal = () => {
     setModalMode("add");
     setSelectedBrand(null);
-    setForm({ name: "", logo: "", status: "Active" });
+    setForm({ name: "", logo: null, status: "Active" });
     setModalOpen(true);
   };
 
@@ -56,19 +57,37 @@ export default function BrandsPage() {
     const name = form.name.trim();
     if (!name) return;
 
+    // The brand logo is uploaded separately via the real Cloudinary endpoint
+    // (immediately when editing, or right after create below) — never sent
+    // as part of this JSON payload.
     const payload = {
       name,
-      logo: form.logo.trim() || "",
       isActive: form.status === "Active",
     };
 
     setSaving(true);
     try {
+      let savedBrand;
       if (selectedBrand) {
-        await brandsApi.updateBrand(selectedBrand.id, payload);
+        const { data } = await brandsApi.updateBrand(selectedBrand.id, payload);
+        savedBrand = data.data;
       } else {
-        await brandsApi.createBrand(payload);
+        const { data } = await brandsApi.createBrand(payload);
+        savedBrand = data.data;
       }
+
+      // A queued logo only happens when the brand didn't exist yet — flush
+      // it now that we have a real id.
+      if (form.logo instanceof File) {
+        const brandId = savedBrand.id ?? savedBrand._id;
+        try {
+          await brandsApi.uploadBrandLogo(brandId, form.logo);
+        } catch (error) {
+          console.error("Queued brand logo upload failed:", error?.response || error.message);
+          toast.error(`${name} saved, but its logo failed to upload — add it via Edit.`);
+        }
+      }
+
       await syncFromServer();
       toast.success(selectedBrand ? "Brand updated" : "Brand created");
       setModalOpen(false);
@@ -139,10 +158,21 @@ export default function BrandsPage() {
                 <span className="mb-1.5 block">Brand name</span>
                 <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
               </label>
-              <label className="block text-sm font-medium text-charcoal-900">
-                <span className="mb-1.5 block">Logo URL</span>
-                <input value={form.logo} onChange={(e) => setForm({ ...form, logo: e.target.value })} placeholder="https://example.com/logo.png" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
-              </label>
+              <ImageUploadField
+                value={form.logo}
+                onChange={(next) => setForm({ ...form, logo: next })}
+                label="Brand logo"
+                successMessage="Brand logo uploaded"
+                errorMessage="Failed to upload brand logo"
+                uploadFn={
+                  selectedBrand
+                    ? async (file) => {
+                        const { data } = await brandsApi.uploadBrandLogo(selectedBrand.id, file);
+                        return data.data.logo?.url || "";
+                      }
+                    : undefined
+                }
+              />
               <label className="block text-sm font-medium text-charcoal-900">
                 <span className="mb-1.5 block">Status</span>
                 <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong bg-white px-3 py-2">

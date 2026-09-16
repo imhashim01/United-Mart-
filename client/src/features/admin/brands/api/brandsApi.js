@@ -20,5 +20,12 @@ export const createBrand = (payload) => api.post("/brands", payload);
 export const updateBrand = (id, payload) => api.patch(`/brands/${id}`, payload);
 export const deleteBrand = (id) => api.delete(`/brands/${id}`);
 export const getBrand = (id) => api.get(`/brands/${id}`);
+export const uploadBrandLogo = (id, file) => {
+  const formData = new FormData();
+  formData.append('logo', file);
+  return api.post(`/brands/${id}/logo`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 export default api;

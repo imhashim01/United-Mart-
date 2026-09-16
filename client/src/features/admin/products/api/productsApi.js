@@ -21,5 +21,23 @@ export const createProduct = (payload) => api.post('/products', payload);
 export const updateProduct = (id, payload) => api.patch(`/products/${id}`, payload);
 export const deleteProduct = (id) => api.delete(`/products/${id}`);
 export const getProduct = (id) => api.get(`/products/${id}`);
+export const uploadProductImages = (id, files) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('images', file));
+  return api.post(`/products/${id}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const removeProductImage = (id, publicId) =>
+  api.delete(`/products/${id}/images/${encodeURIComponent(publicId)}`);
+export const uploadVariantImages = (id, variantId, files) => {
+  const formData = new FormData();
+  files.forEach((file) => formData.append('images', file));
+  return api.post(`/products/${id}/variants/${variantId}/images`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
+export const removeVariantImage = (id, variantId, publicId) =>
+  api.delete(`/products/${id}/variants/${variantId}/images/${encodeURIComponent(publicId)}`);
 
 export default api;

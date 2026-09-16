@@ -5,6 +5,7 @@ import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import VariantImageUploader from "../../components/admin/VariantImageUploader";
+import ImageUploadField from "../../components/admin/ImageUploadField";
 import { loadCategories, loadBrands, mapApiProduct, slugify } from "../../data/productsData";
 import * as productsApi from "../../features/admin/products/api/productsApi";
 import { formatPrice } from "../../utils/formatCurrency";
@@ -22,7 +23,7 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     name: "", brand: "", categoryId: "", additionalCategoryIds: [], price: "", unit: "", stockCount: "",
-    inStock: true, description: "", imageUrl: "", variants: [],
+    inStock: true, description: "", image: null, variants: [],
     isFeatured: false, isBestSeller: false, isTodaysDeal: false,
   });
 
@@ -68,7 +69,7 @@ export default function ProductsPage() {
     name: "", brand: brandObjects[0]?.id ?? "", categoryId: categoryObjects[0]?.id ?? "",
     additionalCategoryIds: [],
     price: "", unit: "",
-    stockCount: "", inStock: true, description: "", imageUrl: "", variants: [],
+    stockCount: "", inStock: true, description: "", image: null, variants: [],
     isFeatured: false, isBestSeller: false, isTodaysDeal: false,
   });
 
@@ -102,11 +103,11 @@ export default function ProductsPage() {
       stockCount: product.stockCount,
       inStock: product.inStock,
       description: product.description || "",
-      imageUrl: resolveImageUrl(product.images?.[0]),
+      image: resolveImageUrl(product.images?.[0]) || null,
       isFeatured: product.isFeatured ?? false,
       isBestSeller: product.isBestSeller ?? false,
       isTodaysDeal: product.isTodaysDeal ?? false,
-      variants: product.variants ?? [],
+      variants: (product.variants ?? []).map((variant) => ({ ...variant, queuedImages: [] })),
     });
     setModalOpen(true);
   };
@@ -163,9 +164,23 @@ export default function ProductsPage() {
   const addVariant = () => {
     setForm((prev) => ({
       ...prev,
-      variants: [...prev.variants, { id: `variant-${Date.now()}`, name: "", sku: "", price: "", discountPrice: "", stock: 0, unit: "pcs", isDefault: prev.variants.length === 0, images: [] }],
+      variants: [...prev.variants, { id: `variant-${Date.now()}`, isNew: true, name: "", sku: "", price: "", discountPrice: "", stock: 0, unit: "pcs", isDefault: prev.variants.length === 0, images: [], queuedImages: [] }],
     }));
   };
+
+  // Maps a raw variant image ({ url, publicId, ... }) from an upload/remove
+  // API response into the shape VariantImageUploader and the save payload
+  // both expect.
+  const mapVariantImages = (rawImages = []) =>
+    rawImages.map((img, index) => ({
+      id: img.publicId || `variant-img-${index}`,
+      imageUrl: img.url,
+      thumbnailUrl: img.url,
+      publicId: img.publicId,
+      altText: img.altText || "",
+      isPrimary: Boolean(img.isPrimary),
+      sortOrder: Number(img.sortOrder ?? index),
+    }));
 
   const removeVariant = (index) => setForm((prev) => ({ ...prev, variants: prev.variants.filter((_, i) => i !== index) }));
   const setDefaultVariant = (index) => setForm((prev) => ({ ...prev, variants: prev.variants.map((v, i) => ({ ...v, isDefault: i === index })) }));
@@ -195,9 +210,9 @@ export default function ProductsPage() {
       isFeatured: Boolean(form.isFeatured),
       isBestSeller: Boolean(form.isBestSeller),
       isTodaysDeal: Boolean(form.isTodaysDeal),
-      images: form.imageUrl.trim()
-        ? [{ url: form.imageUrl.trim(), publicId: `manual-${Date.now()}` }]
-        : undefined,
+      // The main image and variant images are uploaded separately via the
+      // real Cloudinary endpoints (immediately when editing, or right after
+      // create below) — never sent as part of this JSON payload.
       variants: form.variants.length > 0
         ? form.variants.map((variant, index) => {
             const variantSku = String(variant.sku || `${slugify(productName)}-${index + 1}`).trim().toUpperCase();
@@ -211,8 +226,8 @@ export default function ProductsPage() {
               isDefault: Boolean(variant.isDefault),
               images: Array.isArray(variant.images) && variant.images.length > 0
                 ? variant.images.map((img, i) => ({
-                    url: img.imageUrl || img.url || img.thumbnailUrl || "",
-                    publicId: img.publicId || img.id || `manual-variant-${Date.now()}-${i}`,
+                    url: img.imageUrl || img.url || "",
+                    publicId: img.publicId,
                     altText: img.altText || "",
                     sortOrder: Number(img.sortOrder ?? i),
                     isPrimary: Boolean(img.isPrimary),
@@ -225,13 +240,48 @@ export default function ProductsPage() {
 
     setSaving(true);
     try {
+      let savedProduct;
       if (selectedProduct) {
-        await productsApi.updateProduct(selectedProduct.id, payload);
+        const { data } = await productsApi.updateProduct(selectedProduct.id, payload);
+        savedProduct = data.data;
         toast.success(`${productName} updated`);
       } else {
-        await productsApi.createProduct(payload);
+        const { data } = await productsApi.createProduct(payload);
+        savedProduct = data.data;
         toast.success(`${productName} created`);
       }
+
+      const productId = savedProduct.id ?? savedProduct._id;
+
+      // A main image can only be queued (as a File, not yet uploaded) when
+      // the product didn't exist yet — flush it now that we have a real id.
+      if (form.image instanceof File) {
+        try {
+          await productsApi.uploadProductImages(productId, [form.image]);
+        } catch (error) {
+          console.error("Queued product image upload failed:", error?.response || error.message);
+          toast.error(`${productName} saved, but its image failed to upload — add it via Edit.`);
+        }
+      }
+
+      // Same for any brand-new variant's queued images — it had no real
+      // variant id to upload to until this save just created one.
+      await Promise.all(
+        form.variants.map(async (variant, index) => {
+          const queued = variant.queuedImages || [];
+          if (!queued.length) return;
+          const savedVariant = savedProduct.variants?.[index];
+          const variantId = savedVariant?.id ?? savedVariant?._id;
+          if (!variantId) return;
+          try {
+            await productsApi.uploadVariantImages(productId, variantId, queued);
+          } catch (error) {
+            console.error("Queued variant image upload failed:", error?.response || error.message);
+            toast.error(`${productName} saved, but images for "${variant.name || `Variant ${index + 1}`}" failed to upload — add them via Edit.`);
+          }
+        })
+      );
+
       await syncFromServer();
       setModalOpen(false);
     } catch (error) {
@@ -411,10 +461,24 @@ export default function ProductsPage() {
                   <span className="mb-1.5 block">Description</span>
                   <textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} rows={3} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 resize-none" />
                 </label>
-                <label className="md:col-span-2 text-sm font-medium text-charcoal-900">
-                  <span className="mb-1.5 block">Image URL</span>
-                  <input value={form.imageUrl} onChange={(e) => setForm({ ...form, imageUrl: e.target.value })} placeholder="https://example.com/image.jpg" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
-                </label>
+                <div className="md:col-span-2">
+                  <ImageUploadField
+                    value={form.image}
+                    onChange={(next) => setForm({ ...form, image: next })}
+                    label="Product image"
+                    successMessage="Product image uploaded"
+                    errorMessage="Failed to upload product image"
+                    uploadFn={
+                      selectedProduct
+                        ? async (file) => {
+                            const { data } = await productsApi.uploadProductImages(selectedProduct.id, [file]);
+                            const images = data.data.images || [];
+                            return images[images.length - 1]?.url || "";
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
                 <div className="md:col-span-2">
                 
                   <div className="flex items-center justify-between mb-3">
@@ -447,7 +511,34 @@ export default function ProductsPage() {
                           </div>
                         </div>
                         <div className="mt-3">
-                          <VariantImageUploader images={variant.images || []} onChange={(next) => handleVariantChange(idx, 'images', next)} />
+                          <VariantImageUploader
+                            images={variant.images || []}
+                            onImagesChange={(next) => handleVariantChange(idx, 'images', next)}
+                            queuedFiles={variant.queuedImages || []}
+                            onQueuedFilesChange={(next) => handleVariantChange(idx, 'queuedImages', next)}
+                            uploadFn={
+                              selectedProduct && !variant.isNew
+                                ? async (files) => {
+                                    const { data } = await productsApi.uploadVariantImages(selectedProduct.id, variant.id, files);
+                                    const updatedVariant =
+                                      (data.data.variants || []).find((v) => String(v.id ?? v._id) === String(variant.id)) ||
+                                      (data.data.variants || [])[idx];
+                                    return mapVariantImages(updatedVariant?.images || []);
+                                  }
+                                : undefined
+                            }
+                            removeFn={
+                              selectedProduct && !variant.isNew
+                                ? async (publicId) => {
+                                    const { data } = await productsApi.removeVariantImage(selectedProduct.id, variant.id, publicId);
+                                    const updatedVariant =
+                                      (data.data.variants || []).find((v) => String(v.id ?? v._id) === String(variant.id)) ||
+                                      (data.data.variants || [])[idx];
+                                    return mapVariantImages(updatedVariant?.images || []);
+                                  }
+                                : undefined
+                            }
+                          />
                         </div>
                       </div>
                     ))}

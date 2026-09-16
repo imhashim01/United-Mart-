@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import AdminLayout from "../../layouts/AdminLayout";
 import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
+import ImageUploadField from "../../components/admin/ImageUploadField";
 import { getCategoryObjects, getProducts, refreshCategories, refreshProducts } from "../../data/productsData";
 import * as categoriesApi from "../../features/admin/categories/api/categoriesApi";
 
@@ -23,7 +24,7 @@ export default function CategoriesPage() {
   const openAddModal = () => {
     setModalMode("add");
     setSelectedCategory(null);
-    setForm({ name: "", status: "Active", image: "" });
+    setForm({ name: "", status: "Active", image: null });
     setModalOpen(true);
   };
 
@@ -66,19 +67,37 @@ export default function CategoriesPage() {
     const nextName = form.name.trim();
     if (!nextName) return;
 
+    // The category image is uploaded separately via the real Cloudinary
+    // endpoint (immediately when editing, or right after create below) —
+    // never sent as part of this JSON payload.
     const payload = {
       name: nextName,
       isActive: form.status === "Active",
-      image: form.image.trim() || "",
     };
 
     setSaving(true);
     try {
+      let savedCategory;
       if (selectedCategory) {
-        await categoriesApi.updateCategory(selectedCategory.id, payload);
+        const { data } = await categoriesApi.updateCategory(selectedCategory.id, payload);
+        savedCategory = data.data;
       } else {
-        await categoriesApi.createCategory(payload);
+        const { data } = await categoriesApi.createCategory(payload);
+        savedCategory = data.data;
       }
+
+      // A queued image only happens when the category didn't exist yet —
+      // flush it now that we have a real id.
+      if (form.image instanceof File) {
+        const categoryId = savedCategory.id ?? savedCategory._id;
+        try {
+          await categoriesApi.uploadCategoryImage(categoryId, form.image);
+        } catch (error) {
+          console.error("Queued category image upload failed:", error?.response || error.message);
+          toast.error(`${nextName} saved, but its image failed to upload — add it via Edit.`);
+        }
+      }
+
       await syncFromServer();
       toast.success(selectedCategory ? "Category updated" : "Category created");
       setModalOpen(false);
@@ -168,10 +187,21 @@ export default function CategoriesPage() {
                   <span className="mb-1.5 block">Category name</span>
                   <input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
                 </label>
-                <label className="text-sm font-medium text-charcoal-900 block">
-                  <span className="mb-1.5 block">Image URL</span>
-                  <input value={form.image} onChange={(e) => setForm({ ...form, image: e.target.value })} placeholder="https://example.com/category.jpg" className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2" />
-                </label>
+                <ImageUploadField
+                  value={form.image}
+                  onChange={(next) => setForm({ ...form, image: next })}
+                  label="Category image"
+                  successMessage="Category image uploaded"
+                  errorMessage="Failed to upload category image"
+                  uploadFn={
+                    selectedCategory
+                      ? async (file) => {
+                          const { data } = await categoriesApi.uploadCategoryImage(selectedCategory.id, file);
+                          return data.data.image?.url || "";
+                        }
+                      : undefined
+                  }
+                />
                 <label className="text-sm font-medium text-charcoal-900 block">
                   <span className="mb-1.5 block">Status</span>
                   <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} className="w-full rounded-[var(--radius-sm)] border border-border-strong px-3 py-2 bg-white">

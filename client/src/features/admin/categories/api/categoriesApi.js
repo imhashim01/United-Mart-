@@ -20,5 +20,12 @@ export const createCategory = (payload) => api.post("/categories", payload);
 export const updateCategory = (id, payload) => api.patch(`/categories/${id}`, payload);
 export const deleteCategory = (id) => api.delete(`/categories/${id}`);
 export const getCategory = (id) => api.get(`/categories/${id}`);
+export const uploadCategoryImage = (id, file) => {
+  const formData = new FormData();
+  formData.append('image', file);
+  return api.post(`/categories/${id}/image`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+};
 
 export default api;
