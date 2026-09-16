@@ -10,6 +10,20 @@ const api = axios.create({
   withCredentials: true,
 });
 
+// Admin pages (Categories/Brands/Products) re-sync through this same loader
+// after a save. Without the token attached, that re-sync request carries no
+// Authorization header, so the backend's cachePublic middleware treats it as
+// public storefront traffic and it can be served a stale, pre-edit response
+// straight from Vercel's edge cache — attaching the token (when one exists;
+// anonymous shoppers have none) keeps admin refreshes always live.
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("authToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 const DEFAULT_PRODUCT_IMAGE = "https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80";
 
 export const slugify = (value = "") =>
