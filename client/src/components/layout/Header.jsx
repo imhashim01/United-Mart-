@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Heart, ShoppingBasket, User, MapPin, Menu, X, LogOut } from "lucide-react";
+import { Heart, ShoppingBasket, User, MapPin, MessageCircle, Menu, X, LogOut } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "../../assets/images/logo.png";
 import { useMemo } from "react";
@@ -26,12 +26,36 @@ export default function Header() {
   const { user, token, clearAuth } = useAuthStore();
   const displayName = useMemo(() => user?.name || user?.email || "Account", [user]);
 
+  // Fixed to the store's real WhatsApp number rather than the configurable
+  // settings.supportPhone (which may be a placeholder) — this is the number
+  // customers should actually reach for a "we don't carry this" request.
+  const requestMessage = encodeURIComponent(
+    "Hi! I'm looking for an item that's not listed on the United Mart Sukkur website — is it something you can get for me?"
+  );
+  const requestWhatsappUrl = `https://wa.me/923337111954?text=${requestMessage}`;
+
   return (
     <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border">
-      {/* Top strip */}
-      <div className="hidden md:flex items-center justify-center gap-2 bg-orchard-900 text-white text-xs py-1.5 px-4">
-        <MapPin size={13} />
-        <span>Delivering fresh to Sukkur &amp; Rohri — same-day before 4 PM</span>
+      {/* Top strip — shown on every screen size so every visitor sees it, not just desktop */}
+      <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-3 bg-orchard-900 text-white text-[11px] sm:text-xs py-1.5 px-4 text-center">
+        <span className="flex items-center gap-1.5">
+          <MapPin size={13} className="shrink-0" />
+          Delivering fresh to Sukkur &amp; Rohri — same-day before 4 PM
+        </span>
+        {requestWhatsappUrl && (
+          <>
+            <span className="hidden sm:inline text-white/40">•</span>
+            <a
+              href={requestWhatsappUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-1.5 underline decoration-white/40 underline-offset-2 hover:decoration-white transition-colors"
+            >
+              <MessageCircle size={13} className="shrink-0" />
+              Can&apos;t find an item? Message us on WhatsApp
+            </a>
+          </>
+        )}
       </div>
 
       <div className="max-w-7xl mx-auto px-4 md:px-6">
