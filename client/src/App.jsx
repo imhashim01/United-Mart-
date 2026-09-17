@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, Suspense } from "react";
 import HomePage from "./pages/HomePage";
 import ShopPage from "./pages/ShopPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
@@ -7,40 +7,41 @@ import CategoryPage from "./pages/CategoryPage";
 import ProtectedRoute from "./components/auth/ProtectedRoute";
 import FloatingCartBar from "./components/layout/FloatingCartBar";
 import WhatsAppButton from "./components/layout/WhatsAppButton";
+import { lazyWithRetry } from "./utils/lazyWithRetry";
 
 // Everything below this line is NOT needed for a first-time shopper's
 // very first paint — it loads on demand, the moment someone actually
 // navigates there, instead of every visitor downloading the entire
 // admin panel (charts, PDF generation, 15+ admin pages) up front.
-const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const WishlistPage = lazy(() => import("./pages/WishlistPage"));
-const CartPage = lazy(() => import("./pages/CartPage"));
-const AuthPage = lazy(() => import("./pages/AuthPage"));
-const VerifyEmailPage = lazy(() => import("./pages/VerifyEmailPage"));
-const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
-const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
-const RewardsPage = lazy(() => import("./pages/RewardsPage"));
-const InfoPage = lazy(() => import("./pages/InfoPage"));
-const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
-const PublicOrdersPage = lazy(() => import("./pages/OrdersPage"));
-const PublicOrderDetailsPage = lazy(() => import("./pages/PublicOrderDetailsPage"));
+const CheckoutPage = lazyWithRetry(() => import("./pages/CheckoutPage"), "CheckoutPage");
+const WishlistPage = lazyWithRetry(() => import("./pages/WishlistPage"), "WishlistPage");
+const CartPage = lazyWithRetry(() => import("./pages/CartPage"), "CartPage");
+const AuthPage = lazyWithRetry(() => import("./pages/AuthPage"), "AuthPage");
+const VerifyEmailPage = lazyWithRetry(() => import("./pages/VerifyEmailPage"), "VerifyEmailPage");
+const ForgotPasswordPage = lazyWithRetry(() => import("./pages/ForgotPasswordPage"), "ForgotPasswordPage");
+const ResetPasswordPage = lazyWithRetry(() => import("./pages/ResetPasswordPage"), "ResetPasswordPage");
+const RewardsPage = lazyWithRetry(() => import("./pages/RewardsPage"), "RewardsPage");
+const InfoPage = lazyWithRetry(() => import("./pages/InfoPage"), "InfoPage");
+const NotFoundPage = lazyWithRetry(() => import("./pages/NotFoundPage"), "NotFoundPage");
+const PublicOrdersPage = lazyWithRetry(() => import("./pages/OrdersPage"), "PublicOrdersPage");
+const PublicOrderDetailsPage = lazyWithRetry(() => import("./pages/PublicOrderDetailsPage"), "PublicOrderDetailsPage");
 
-const DashboardPage = lazy(() => import("./pages/admin/DashboardPage"));
-const AdminOrdersPage = lazy(() => import("./pages/admin/OrdersPage"));
-const AdminOrderDetailsPage = lazy(() => import("./pages/admin/OrderDetailsPage"));
-const ProductsPage = lazy(() => import("./pages/admin/ProductsPage"));
-const TodaysDealsPage = lazy(() => import("./pages/admin/TodaysDealsPage"));
-const CategoriesPage = lazy(() => import("./pages/admin/CategoriesPage"));
-const BrandsPage = lazy(() => import("./pages/admin/BrandsPage"));
-const CustomersPage = lazy(() => import("./pages/admin/CustomersPage"));
-const InventoryPage = lazy(() => import("./pages/admin/InventoryPage"));
-const CouponsPage = lazy(() => import("./pages/admin/CouponsPage"));
-const RewardProgramPage = lazy(() => import("./pages/admin/RewardProgramPage"));
-const PaymentsPage = lazy(() => import("./pages/admin/PaymentsPage"));
-const ReportsPage = lazy(() => import("./pages/admin/ReportsPage"));
-const InvoicesPage = lazy(() => import("./pages/admin/InvoicesPage"));
-const AdminsPage = lazy(() => import("./pages/admin/AdminsPage"));
-const SettingsPage = lazy(() => import("./pages/admin/SettingsPage"));
+const DashboardPage = lazyWithRetry(() => import("./pages/admin/DashboardPage"), "DashboardPage");
+const AdminOrdersPage = lazyWithRetry(() => import("./pages/admin/OrdersPage"), "AdminOrdersPage");
+const AdminOrderDetailsPage = lazyWithRetry(() => import("./pages/admin/OrderDetailsPage"), "AdminOrderDetailsPage");
+const ProductsPage = lazyWithRetry(() => import("./pages/admin/ProductsPage"), "ProductsPage");
+const TodaysDealsPage = lazyWithRetry(() => import("./pages/admin/TodaysDealsPage"), "TodaysDealsPage");
+const CategoriesPage = lazyWithRetry(() => import("./pages/admin/CategoriesPage"), "CategoriesPage");
+const BrandsPage = lazyWithRetry(() => import("./pages/admin/BrandsPage"), "BrandsPage");
+const CustomersPage = lazyWithRetry(() => import("./pages/admin/CustomersPage"), "CustomersPage");
+const InventoryPage = lazyWithRetry(() => import("./pages/admin/InventoryPage"), "InventoryPage");
+const CouponsPage = lazyWithRetry(() => import("./pages/admin/CouponsPage"), "CouponsPage");
+const RewardProgramPage = lazyWithRetry(() => import("./pages/admin/RewardProgramPage"), "RewardProgramPage");
+const PaymentsPage = lazyWithRetry(() => import("./pages/admin/PaymentsPage"), "PaymentsPage");
+const ReportsPage = lazyWithRetry(() => import("./pages/admin/ReportsPage"), "ReportsPage");
+const InvoicesPage = lazyWithRetry(() => import("./pages/admin/InvoicesPage"), "InvoicesPage");
+const AdminsPage = lazyWithRetry(() => import("./pages/admin/AdminsPage"), "AdminsPage");
+const SettingsPage = lazyWithRetry(() => import("./pages/admin/SettingsPage"), "SettingsPage");
 
 function ScrollToTop() {
   const { pathname } = useLocation();
