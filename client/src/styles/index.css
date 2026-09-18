@@ -74,3 +74,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Physical thermal receipt printer (Black Copper BC-88AC, 80mm roll) — tells
+   the browser's print engine the actual paper width instead of assuming a
+   normal A4/Letter page, which is what caused tiny shrunk-to-fit text and
+   wastefully long prints on the "Print Invoice" button. */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 3mm;
+  }
+}

@@ -8,7 +8,7 @@ import AdminLayout from "../../layouts/AdminLayout";
 import Badge from "../../components/ui/Badge";
 import OrderStatusStepper from "../../features/admin/orders/components/OrderStatusStepper";
 import OrderTimeline from "../../features/admin/orders/components/OrderTimeline";
-import InvoiceDocument from "../../features/admin/orders/components/InvoiceDocument";
+import ThermalReceipt from "../../features/admin/orders/components/ThermalReceipt";
 import { ORDER_STATUSES, STATUS_BADGE_VARIANT } from "../../data/adminData";
 import { formatPrice, formatDate } from "../../utils/formatCurrency";
 import { downloadInvoicePdf } from "../../utils/invoicePdf";
@@ -219,9 +219,10 @@ export default function OrderDetailsPage() {
         </div>
       </div>
 
-      {/* Print-only invoice — hidden on screen, shown when printing */}
+      {/* Print-only receipt — hidden on screen, shown when printing to the
+          physical thermal receipt printer via the "Print Invoice" button */}
       <div className="hidden print:block">
-        <InvoiceDocument order={order} />
+        <ThermalReceipt order={order} />
       </div>
     </AdminLayout>
   );
