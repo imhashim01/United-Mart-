@@ -2,11 +2,18 @@ import { formatPrice, formatDate } from "../../../../utils/formatCurrency";
 import { getSettings } from "../../../../data/settingsData";
 
 // Genuine narrow-paper receipt for a physical 80mm thermal printer (72mm
-// usable width) — deliberately NOT a scaled-down version of InvoiceDocument.
-// That component is a full-page A4/Letter invoice; forcing its two-column
-// layout and table onto an 80mm roll is what made prints both unreadable
-// (browser shrinking everything to fit the width) and absurdly long
-// (content wrapping across many more narrow lines than necessary).
+// usable print width) — deliberately NOT a scaled-down version of
+// InvoiceDocument. That component is a full-page A4/Letter invoice; forcing
+// its two-column layout and table onto an 80mm roll is what made prints
+// both unreadable (browser shrinking everything to fit the width) and
+// absurdly long (content wrapping across many more narrow lines than
+// necessary).
+//
+// Deliberately sized to 68mm, a bit under the printer's stated 72mm usable
+// width: at exactly 72mm, real prints clipped the last character or two off
+// every right-aligned value (a driver/print-dialog margin eating into the
+// printable area beyond what the @page CSS margin accounts for) — this
+// trades a little unused paper for reliably not losing digits off prices.
 const Divider = () => <div className="my-1.5 border-t border-dashed border-black" />;
 
 export default function ThermalReceipt({ order }) {
@@ -15,7 +22,7 @@ export default function ThermalReceipt({ order }) {
   return (
     <div
       id="thermal-receipt"
-      className="mx-auto w-[72mm] bg-white text-black"
+      className="mx-auto w-[68mm] bg-white text-black font-semibold"
       style={{ fontFamily: "'Courier New', ui-monospace, monospace", fontSize: "11px", lineHeight: 1.4 }}
     >
       <div className="text-center">
