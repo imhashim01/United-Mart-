@@ -22,7 +22,7 @@ export default function ThermalReceipt({ order }) {
   return (
     <div
       id="thermal-receipt"
-      className="mx-auto w-[68mm] bg-white text-black font-semibold"
+      className="mx-auto w-[58mm] bg-white text-black font-semibold"
       style={{ fontFamily: "'Courier New', ui-monospace, monospace", fontSize: "11px", lineHeight: 1.4 }}
     >
       <div className="text-center">
