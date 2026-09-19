@@ -9,7 +9,7 @@ export default function HeroBanner() {
       {/* Decorative background image */}
       <div className="absolute inset-0">
         <img
-          src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=1600&q=80"
+          src="https://res.cloudinary.com/osb9u3aw/image/upload/v1789798386/Gemini_Generated_Image_1xo7mq1xo7mq1xo7_yatiqh.jpg"
           alt=""
           className="w-full h-full object-cover opacity-25"
         />
