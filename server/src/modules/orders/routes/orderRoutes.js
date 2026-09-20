@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect, authorize } from '../../../middlewares/auth.js';
+import { protect, authorize, optionalAuth } from '../../../middlewares/auth.js';
 import { validate } from '../../../middlewares/validate.js';
 import {
   cancelOrder,
@@ -18,9 +18,13 @@ import {
 
 const router = Router();
 
+// Placing an order allows guest checkout — optionalAuth attaches req.user
+// when a valid token is present but never blocks the request. Every other
+// order route still requires a real login.
+router.post('/', optionalAuth, validate(createOrderSchema), createOrder);
+
 router.use(protect);
 
-router.post('/', validate(createOrderSchema), createOrder);
 router.get('/me', validate(listOrdersQuerySchema, 'query'), getMyOrders);
 router.get('/:id', getOrder);
 router.post('/:id/cancel', validate(cancelOrderSchema), cancelOrder);

@@ -14,7 +14,8 @@ const invoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true },
     order: { type: mongoose.Schema.Types.ObjectId, ref: 'Order', required: true },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Optional: null for a guest order's invoice.
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     items: { type: [invoiceItemSchema], required: true },
     subtotal: { type: Number, required: true },
     discountAmount: { type: Number, default: 0 },

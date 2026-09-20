@@ -43,7 +43,11 @@ const statusHistorySchema = new mongoose.Schema(
 const orderSchema = new mongoose.Schema(
   {
     orderNumber: { type: String, required: true, unique: true },
-    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    // Optional: guest checkout leaves this null. Guest orders carry their
+    // contact name here instead, since there's no User document to read it
+    // from — phone comes from shippingAddress.phone in both cases.
+    user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+    guestName: { type: String, trim: true, default: null },
     items: { type: [orderItemSchema], validate: (v) => Array.isArray(v) && v.length > 0 },
     shippingAddress: { type: addressSnapshotSchema, required: true },
     billingAddress: { type: addressSnapshotSchema },

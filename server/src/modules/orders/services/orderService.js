@@ -20,9 +20,15 @@ const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 50
 
 
 
-export const createOrderFromCart = async ({ userId, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items, pointsToRedeem }) => {
+export const createOrderFromCart = async ({ userId, guestName, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items, pointsToRedeem }) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw ApiError.badRequest('Your cart is empty');
+  }
+
+  // Guest checkout: no account to read a name/phone from, so both must be
+  // given directly on the request.
+  if (!userId && (!guestName?.trim() || !shippingAddress?.phone?.trim())) {
+    throw ApiError.badRequest('Please provide your name and phone number to continue as a guest.');
   }
 
   // Delivery pricing and the minimum order rule are admin-configurable —
@@ -95,8 +101,9 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     if (couponCode) {
       const foundCoupon = await Coupon.findOne({ code: couponCode.toUpperCase() }).session(session);
       if (foundCoupon && foundCoupon.isCurrentlyValid()) {
-        const userUsage = foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString());
-        const withinPerUserLimit = !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
+        // Guests have no persistent identity to track per-user usage against.
+        const userUsage = userId ? foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString()) : null;
+        const withinPerUserLimit = !userId || !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
         const calculatedDiscount = foundCoupon.calculateDiscount(subtotal);
         if (withinPerUserLimit && calculatedDiscount > 0) {
           discountAmount = calculatedDiscount;
@@ -107,8 +114,10 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
 
     // Reward points redemption: 1 point = Rs 1, capped at 50% of subtotal —
     // mirrors the same limit the checkout UI enforces, recalculated
-    // server-side so the client can't just send an arbitrary number.
-    const requestedPoints = Math.max(0, Math.floor(pointsToRedeem || 0));
+    // server-side so the client can't just send an arbitrary number. A
+    // guest has no points balance to redeem from, regardless of what the
+    // request claims.
+    const requestedPoints = userId ? Math.max(0, Math.floor(pointsToRedeem || 0)) : 0;
     const redeemablePoints = Math.min(requestedPoints, Math.floor(subtotal * 0.5));
     const rewardPointsDiscount = redeemablePoints;
 
@@ -120,7 +129,8 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     const [order] = await Order.create(
       [
         {
-          user: userId,
+          user: userId || null,
+          guestName: userId ? null : guestName.trim(),
           items: orderItems,
           shippingAddress,
           billingAddress: billingAddress || shippingAddress,
@@ -131,7 +141,8 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
           shippingFee,
           totalAmount,
           rewardPointsUsed: redeemablePoints,
-          rewardPointsEarned: calculatePointsForAmount(totalAmount),
+          // A guest has no account for points to land in, so none are earned.
+          rewardPointsEarned: userId ? calculatePointsForAmount(totalAmount) : 0,
           coupon: coupon?._id ?? null,
           orderNumber: generateOrderNumber(),
           customerNote,
@@ -144,9 +155,13 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
 
     if (coupon) {
       coupon.usedCount += 1;
-      const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId.toString());
-      if (userUsage) userUsage.count += 1;
-      else coupon.usersUsed.push({ user: userId, count: 1 });
+      // Guests have no persistent identity to track per-user usage against —
+      // the overall usedCount above still applies to them.
+      if (userId) {
+        const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId.toString());
+        if (userUsage) userUsage.count += 1;
+        else coupon.usersUsed.push({ user: userId, count: 1 });
+      }
       await coupon.save({ session });
     }
 
@@ -178,20 +193,23 @@ export const createOrderFromCart = async ({ userId, shippingAddress, billingAddr
     }
 
     try {
-      await earnPoints({
-        userId,
-        amount: totalAmount,
-        orderId: order._id,
-        description: `Earned from order ${order.orderNumber}`,
-      });
+      // Both require a real account — skipped entirely for a guest order.
+      if (userId) {
+        await earnPoints({
+          userId,
+          amount: totalAmount,
+          orderId: order._id,
+          description: `Earned from order ${order.orderNumber}`,
+        });
+        await notifyUser({
+          userId,
+          title: 'Order placed',
+          message: `Your order ${order.orderNumber} has been placed successfully.`,
+          type: 'order',
+          link: `/orders/${order._id}`,
+        });
+      }
       await createInvoiceForOrder(order);
-      await notifyUser({
-  userId,
-  title: 'Order placed',
-  message: `Your order ${order.orderNumber} has been placed successfully.`,
-  type: 'order',
-  link: `/orders/${order._id}`,
-});
     } catch (sideEffectError) {
       console.error('Post-order side effects failed:', sideEffectError.message);
     }
@@ -241,13 +259,16 @@ export const updateOrderStatus = async (id, { status, note }, changedBy) => {
 
   await order.save();
 
-  await notifyUser({
-    userId: order.user,
-    title: 'Order status updated',
-    message: `Your order ${order.orderNumber} is now "${status}".`,
-    type: 'order',
-    link: `/orders/${order._id}`,
-  });
+  // A guest order has no account to notify.
+  if (order.user) {
+    await notifyUser({
+      userId: order.user,
+      title: 'Order status updated',
+      message: `Your order ${order.orderNumber} is now "${status}".`,
+      type: 'order',
+      link: `/orders/${order._id}`,
+    });
+  }
 
   return order;
 };
@@ -256,7 +277,7 @@ export const cancelOrder = async (id, { reason }, requester) => {
   const order = await Order.findById(id);
   if (!order) throw ApiError.notFound('Order not found');
 
-  const isOwner = order.user.toString() === requester.id;
+  const isOwner = order.user ? order.user.toString() === requester.id : false;
   if (!isOwner && !['admin', 'manager'].includes(requester.role)) {
     throw ApiError.forbidden('You do not have permission to cancel this order');
   }
@@ -285,13 +306,16 @@ export const cancelOrder = async (id, { reason }, requester) => {
     })
   );
 
-  await notifyUser({
-    userId: order.user,
-    title: 'Order cancelled',
-    message: `Your order ${order.orderNumber} has been cancelled.`,
-    type: 'order',
-    link: `/orders/${order._id}`,
-  });
+  // A guest order has no account to notify.
+  if (order.user) {
+    await notifyUser({
+      userId: order.user,
+      title: 'Order cancelled',
+      message: `Your order ${order.orderNumber} has been cancelled.`,
+      type: 'order',
+      link: `/orders/${order._id}`,
+    });
+  }
 
   return order;
 };

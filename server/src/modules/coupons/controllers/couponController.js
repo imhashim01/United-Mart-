@@ -31,7 +31,7 @@ export const validateCoupon = asyncHandler(async (req, res) => {
   const result = await couponService.validateCouponForUser({
     code: req.body.code,
     subtotal: req.body.subtotal,
-    userId: req.user.id,
+    userId: req.user?.id ?? null,
   });
   sendResponse(res, 200, result, 'Coupon is valid');
 });

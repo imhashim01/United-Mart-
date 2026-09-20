@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { protect, authorize } from '../../../middlewares/auth.js';
+import { protect, authorize, optionalAuth } from '../../../middlewares/auth.js';
 import { validate } from '../../../middlewares/validate.js';
 import {
   createCoupon,
@@ -17,10 +17,11 @@ import {
 
 const router = Router();
 
+// Guests can apply a coupon at checkout too — optionalAuth attaches
+// req.user when a valid token is present but never blocks the request.
+router.post('/validate', optionalAuth, validate(validateCouponSchema), validateCoupon);
+
 router.use(protect);
-
-router.post('/validate', validate(validateCouponSchema), validateCoupon);
-
 router.use(authorize('admin', 'manager'));
 router.get('/', listCoupons);
 router.get('/:id', getCoupon);

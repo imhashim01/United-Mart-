@@ -40,7 +40,9 @@ export const validateCouponForUser = async ({ code, subtotal, userId }) => {
     throw ApiError.badRequest(`Minimum purchase of Rs.${coupon.minPurchaseAmount} required for this coupon`);
   }
 
-  const userUsage = coupon.usersUsed.find((u) => u.user.toString() === userId);
+  // Guests have no persistent identity to track per-user usage against —
+  // only enforced for a logged-in user.
+  const userUsage = userId ? coupon.usersUsed.find((u) => u.user.toString() === userId) : null;
   if (userUsage && userUsage.count >= coupon.usageLimitPerUser) {
     throw ApiError.badRequest('You have already used this coupon the maximum number of times');
   }

@@ -137,6 +137,19 @@ export default function AuthForm({ mode = 'login' }) {
             <Link to="/login" className="font-medium text-orchard-700">Sign in</Link>
           )}
         </div>
+
+        <div className="mt-6 pt-6 border-t border-border text-center">
+          <p className="text-xs text-charcoal-600 mb-3">
+            Want to earn reward points on this order? Log in or create an account above.
+            Just want to order quickly? Continue as a guest below.
+          </p>
+          <Link
+            to="/checkout"
+            className="flex h-11 w-full items-center justify-center rounded-[var(--radius-md)] border border-border-strong text-sm font-semibold text-charcoal-900 hover:bg-linen-50 transition-colors"
+          >
+            Continue as Guest
+          </Link>
+        </div>
       </div>
     </div>
   );

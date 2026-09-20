@@ -11,6 +11,7 @@ import OrderSummary from "../features/cart/components/OrderSummary";
 import CouponInput from "../features/checkout/components/CouponInput";
 import RewardPointsRedeem from "../features/checkout/components/RewardPointsRedeem";
 import AddressManager from "../features/checkout/components/AddressManager";
+import GuestDetailsForm from "../features/checkout/components/GuestDetailsForm";
 import PaymentMethodSelector from "../features/checkout/components/PaymentMethodSelector";
 import DeliveryEstimate from "../features/checkout/components/DeliveryEstimate";
 import { useCartStore } from "../store/cartStore";
@@ -26,6 +27,9 @@ export default function CheckoutPage() {
   const clearCart = useCartStore((s) => s.clearCart);
   const couponCode = useCartStore((s) => s.couponCode);
   const user = useAuthStore((s) => s.user);
+  // No account, no saved addresses, no reward points — the guest-checkout
+  // branch below swaps in a one-time details form and hides reward points.
+  const isGuest = !user;
   const rewardPointsToRedeem = useCartStore((s) => s.rewardPointsToRedeem);
   const meetsMinimumOrder = useCartStore((s) => s.meetsMinimumOrder());
 const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
@@ -45,8 +49,8 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
     return <Navigate to="/shop" replace />;
   }
 
-  const onSubmit = async () => {
-    if (!selectedAddressId || !selectedAddress) {
+  const onSubmit = async (formData) => {
+    if (!isGuest && (!selectedAddressId || !selectedAddress)) {
       setError("address", {
         type: "manual",
         message: "Please select or add a delivery address to complete checkout.",
@@ -61,36 +65,45 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
     setSubmitting(true);
 
     try {
+      // Guest fields are registered (and therefore validated) via
+      // GuestDetailsForm using this same form's react-hook-form context —
+      // handleSubmit only reaches here once they pass, same as AddressManager's
+      // selection already having been made for a logged-in user.
+      const addressForOrder = isGuest
+        ? {
+            label: "",
+            line1: formData.guestLine1 || "",
+            line2: "",
+            city: formData.guestCity || "",
+            state: formData.guestArea || "",
+            postalCode: "",
+            country: "",
+            phone: formData.guestPhone || "",
+          }
+        : {
+            label: selectedAddress.label || "",
+            line1: selectedAddress.line1 || "",
+            line2: selectedAddress.line2 || "",
+            city: selectedAddress.city || "",
+            state: selectedAddress.area || selectedAddress.state || "",
+            postalCode: selectedAddress.postalCode || "",
+            country: selectedAddress.country || "",
+            phone: selectedAddress.phone || user?.phone || "",
+          };
+
       const payload = {
         items: items.map((item) => ({
           productId: item.productId,
           ...(item.variantId ? { variantId: item.variantId } : {}),
           quantity: item.qty,
         })),
-        ...(rewardPointsToRedeem > 0 ? { pointsToRedeem: rewardPointsToRedeem } : {}),
-        shippingAddress: {
-          label: selectedAddress.label || "",
-          line1: selectedAddress.line1 || "",
-          line2: selectedAddress.line2 || "",
-          city: selectedAddress.city || "",
-          state: selectedAddress.area || selectedAddress.state || "",
-          postalCode: selectedAddress.postalCode || "",
-          country: selectedAddress.country || "",
-          phone: selectedAddress.phone || user?.phone || "",
-        },
-        billingAddress: {
-          label: selectedAddress.label || "",
-          line1: selectedAddress.line1 || "",
-          line2: selectedAddress.line2 || "",
-          city: selectedAddress.city || "",
-          state: selectedAddress.area || selectedAddress.state || "",
-          postalCode: selectedAddress.postalCode || "",
-          country: selectedAddress.country || "",
-          phone: selectedAddress.phone || user?.phone || "",
-        },
+        ...(!isGuest && rewardPointsToRedeem > 0 ? { pointsToRedeem: rewardPointsToRedeem } : {}),
+        shippingAddress: addressForOrder,
+        billingAddress: addressForOrder,
         paymentMethod,
         ...(couponCode ? { couponCode } : {}),
         ...(orderNotes ? { customerNote: orderNotes } : {}),
+        ...(isGuest ? { guestName: formData.guestName } : {}),
       };
 
       if (typeof window.fbq === "function") {
@@ -150,12 +163,17 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
               >
                 Continue Shopping
               </Link>
-              <Link
-                to="/orders"
-                className="h-11 flex items-center justify-center rounded-[var(--radius-md)] border border-border-strong text-sm font-semibold text-charcoal-900 hover:bg-linen-50 transition-colors"
-              >
-                Track Order
-              </Link>
+              {/* A guest has no account to log into, so no way to revisit
+                  /orders (which requires login) — the link would just
+                  bounce them to /login for nothing. */}
+              {!isGuest && (
+                <Link
+                  to="/orders"
+                  className="h-11 flex items-center justify-center rounded-[var(--radius-md)] border border-border-strong text-sm font-semibold text-charcoal-900 hover:bg-linen-50 transition-colors"
+                >
+                  Track Order
+                </Link>
+              )}
             </div>
           </motion.div>
         </main>
@@ -183,7 +201,11 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
           <form onSubmit={handleSubmit(onSubmit)} className="grid lg:grid-cols-[1fr_380px] gap-8">
             {/* Left: address + payment */}
             <div className="flex flex-col gap-5">
-              <AddressManager selectedId={selectedAddressId} onSelect={setSelectedAddressId} onAddressChange={setSelectedAddress} />
+              {isGuest ? (
+                <GuestDetailsForm />
+              ) : (
+                <AddressManager selectedId={selectedAddressId} onSelect={setSelectedAddressId} onAddressChange={setSelectedAddress} />
+              )}
               {errors.address && (
                 <p className="text-sm text-danger-600">{errors.address.message}</p>
               )}
@@ -201,7 +223,8 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
                 />
               </div>
               <CouponInput />
-              <RewardPointsRedeem />
+              {/* No account, no points balance to redeem into. */}
+              {!isGuest && <RewardPointsRedeem />}
             </div>
 
             {/* Right: cart items + summary + place order */}

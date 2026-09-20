@@ -43,6 +43,9 @@ const normalizeOrder = (order) => {
   }));
 
   const shippingPhone = order.shippingAddress?.phone;
+  // A guest order has no `user` to populate — its name was collected
+  // directly at checkout and stored on the order itself instead.
+  const guestLabel = order.guestName ? `${order.guestName} (Guest)` : "Guest";
   const customer = order.customer || (order.user
     ? {
         name: order.user.name || "Customer",
@@ -51,10 +54,10 @@ const normalizeOrder = (order) => {
         avatar: order.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(order.user.name || order.user.email || "Customer")}&background=F7F0EB&color=23442C`,
       }
     : {
-        name: "Customer",
+        name: guestLabel,
         email: "",
         phone: shippingPhone || "N/A",
-        avatar: "https://ui-avatars.com/api/?name=Customer&background=F7F0EB&color=23442C",
+        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(order.guestName || "Guest")}&background=F7F0EB&color=23442C`,
       });
 
   const address = order.address || {

@@ -27,6 +27,9 @@ export const createOrderSchema = Joi.object({
   couponCode: Joi.string().trim().uppercase().allow('', null),
   customerNote: Joi.string().trim().max(500).allow('', null),
   pointsToRedeem: Joi.number().integer().min(0).default(0),
+  // Guest checkout only — the service enforces this (plus a phone on
+  // shippingAddress) is present when the request has no logged-in user.
+  guestName: Joi.string().trim().max(100).allow('', null),
 });
 
 export const updateOrderStatusSchema = Joi.object({

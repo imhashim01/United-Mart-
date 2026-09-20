@@ -115,14 +115,10 @@ export default function App() {
               </ProtectedRoute>
             }
           />
-          <Route
-            path="/checkout"
-            element={
-              <ProtectedRoute>
-                <CheckoutPage />
-              </ProtectedRoute>
-            }
-          />
+          {/* Public: guest checkout is allowed here — CheckoutPage itself
+              branches its address/reward-points UI on whether a user is
+              logged in. */}
+          <Route path="/checkout" element={<CheckoutPage />} />
           <Route
             path="/orders"
             element={
