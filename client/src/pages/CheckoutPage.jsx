@@ -69,25 +69,26 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
       // GuestDetailsForm using this same form's react-hook-form context —
       // handleSubmit only reaches here once they pass, same as AddressManager's
       // selection already having been made for a logged-in user.
+      // The backend's addressSchema uses plain Joi.string() (no .allow(''))
+      // for `label` and `country` — an empty string fails validation there,
+      // unlike line2/state/postalCode/phone which explicitly allow it. Real,
+      // non-empty defaults instead of "" avoid that "Validation failed".
       const addressForOrder = isGuest
         ? {
-            label: "",
             line1: formData.guestLine1 || "",
-            line2: "",
             city: formData.guestCity || "",
             state: formData.guestArea || "",
-            postalCode: "",
-            country: "",
             phone: formData.guestPhone || "",
+            country: "Pakistan",
           }
         : {
-            label: selectedAddress.label || "",
+            label: selectedAddress.label || "Home",
             line1: selectedAddress.line1 || "",
             line2: selectedAddress.line2 || "",
             city: selectedAddress.city || "",
             state: selectedAddress.area || selectedAddress.state || "",
             postalCode: selectedAddress.postalCode || "",
-            country: selectedAddress.country || "",
+            country: selectedAddress.country || "Pakistan",
             phone: selectedAddress.phone || user?.phone || "",
           };
 

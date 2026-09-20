@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBasket, ArrowRight } from "lucide-react";
 import Header from "../components/layout/Header";
 import Footer from "../components/layout/Footer";
@@ -8,9 +8,24 @@ import DeliveryEstimate from "../features/checkout/components/DeliveryEstimate";
 import CouponInput from "../features/checkout/components/CouponInput";
 import RewardPointsRedeem from "../features/checkout/components/RewardPointsRedeem";
 import { useCartStore } from "../store/cartStore";
+import { useAuthStore } from "../features/auth/hooks/useAuth";
 
 export default function CartPage() {
   const items = useCartStore((s) => s.items);
+  const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
+
+  // Checkout itself is public (guests can complete it), but the normal
+  // cart-to-checkout flow still offers login first — matching how it
+  // worked before guest checkout existed. Signing in returns here via
+  // AuthForm reading this same location.state.from.
+  const handleCheckoutClick = () => {
+    if (!user) {
+      navigate("/login", { state: { from: { pathname: "/checkout" } } });
+      return;
+    }
+    navigate("/checkout");
+  };
 
   return (
     <div className="min-h-screen bg-linen-50 flex flex-col">
@@ -54,13 +69,14 @@ export default function CartPage() {
               <CouponInput />
               <RewardPointsRedeem />
               <OrderSummary />
-              <Link
-                to="/checkout"
+              <button
+                type="button"
+                onClick={handleCheckoutClick}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-[var(--radius-md)] bg-orchard-900 text-sm font-semibold text-white hover:bg-orchard-700"
               >
                 Proceed to Checkout
                 <ArrowRight size={18} />
-              </Link>
+              </button>
             </div>
           </div>
         )}
