@@ -63,7 +63,7 @@ function AnalyticsTracker() {
       });
     }
     if (typeof window.fbq === "function") {
-      window.fbq("track", "PageView");
+      window.fbq("track", "PageView", {}, { eventID: `pageview-${Date.now()}-${Math.random().toString(36).slice(2)}` });
     }
   }, [location]);
 

@@ -112,7 +112,7 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
           value: total,
           currency: "PKR",
           num_items: items.length,
-        });
+        }, { eventID: `checkout-${Date.now()}` });
       }
 
       const { data } = await ordersApi.createOrder(payload);
@@ -121,7 +121,7 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
         window.fbq("track", "Purchase", {
           value: createdOrder?.totalAmount ?? total,
           currency: "PKR",
-        });
+        }, { eventID: `purchase-${createdOrder?.id ?? createdOrder?.orderNumber ?? createdOrder?._id}` });
       }
       const newOrderId = createdOrder?.id || createdOrder?.orderNumber || createdOrder?._id || `UMS-${Math.floor(100000 + Math.random() * 900000)}`;
 
