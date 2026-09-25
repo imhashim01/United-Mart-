@@ -118,11 +118,24 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
       const { data } = await ordersApi.createOrder(payload);
       const createdOrder = data.data;
       if (typeof window.fbq === "function") {
-        window.fbq("track", "Purchase", {
-          value: createdOrder?.totalAmount ?? total,
-          currency: "PKR",
-        }, { eventID: `purchase-${createdOrder?.id ?? createdOrder?.orderNumber ?? createdOrder?._id}` });
-      }
+  window.fbq(
+    "track",
+    "Purchase",
+    {
+      value: createdOrder?.totalAmount ?? total,
+      currency: "PKR",
+      content_type: "product",
+      content_ids: items.map((item) => item.variantId || item.productId),
+      contents: items.map((item) => ({
+        id: item.variantId || item.productId,
+        quantity: item.qty,
+        item_price: item.price,
+      })),
+      num_items: items.reduce((sum, item) => sum + item.qty, 0),
+    },
+    { eventID: `purchase-${createdOrder?.id ?? createdOrder?.orderNumber ?? createdOrder?._id}` }
+  );
+}
       const newOrderId = createdOrder?.id || createdOrder?.orderNumber || createdOrder?._id || `UMS-${Math.floor(100000 + Math.random() * 900000)}`;
 
       setOrderId(newOrderId);
