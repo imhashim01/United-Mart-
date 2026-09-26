@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import * as couponsApi from "../features/checkout/api/couponsApi";
+import { trackAddToCart } from "../features/tracking/api/trackingApi";
+import { getFbp } from "../utils/fbCookies";
+import { useAuthStore } from "../features/auth/hooks/useAuth";
 import { getSettings } from "../data/settingsData";
 
 const REWARD_POINT_VALUE = 1; // 1 point = Rs 1 when redeemed
@@ -65,6 +68,7 @@ export const useCartStore = create(
             ],
           });
         }
+        const addToCartEventId = `addtocart-${product.id}-${Date.now()}`;
         if (typeof window.fbq === "function") {
         window.fbq(
         "track",
@@ -76,9 +80,23 @@ export const useCartStore = create(
         value: price,
         currency: "PKR",
       },
-      { eventID: `addtocart-${product.id}-${Date.now()}` }
+      { eventID: addToCartEventId }
   );
 }
+        // Server-side mirror for Meta Conversions API, deduplicated against
+        // the browser event above via the shared event ID. Fire-and-forget —
+        // must never affect cart behavior if it fails.
+        const authUser = useAuthStore.getState().user;
+        trackAddToCart({
+          eventId: addToCartEventId,
+          productId: product.id,
+          productName: product.name,
+          price,
+          fbp: getFbp(),
+          email: authUser?.email,
+          phone: authUser?.phone,
+          eventSourceUrl: window.location.href,
+        }).catch(() => {});
       },
 
       removeItem: (id) => set({ items: get().items.filter((i) => i.id !== id) }),

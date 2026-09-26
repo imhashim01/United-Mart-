@@ -11,6 +11,7 @@ import { createInvoiceForOrder } from '../../invoices/services/invoiceService.js
 import { createPaymentForOrder } from '../../payments/services/paymentService.js';
 import { notifyUser } from '../../notifications/services/notificationService.js';
 import { getSettings } from '../../settings/services/settingService.js';
+import { sendMetaCapiEvent } from '../../../utils/metaConversionsApi.js';
 
 const TAX_RATE = Number(process.env.TAX_RATE || 0);
 
@@ -20,7 +21,22 @@ const FREE_SHIPPING_THRESHOLD = Number(process.env.FREE_SHIPPING_THRESHOLD || 50
 
 
 
-export const createOrderFromCart = async ({ userId, guestName, shippingAddress, billingAddress, paymentMethod, couponCode, customerNote, items, pointsToRedeem }) => {
+export const createOrderFromCart = async ({
+  userId,
+  guestName,
+  shippingAddress,
+  billingAddress,
+  paymentMethod,
+  couponCode,
+  customerNote,
+  items,
+  pointsToRedeem,
+  fbp,
+  eventSourceUrl,
+  trackingUser,
+  clientIp,
+  userAgent,
+}) => {
   if (!Array.isArray(items) || items.length === 0) {
     throw ApiError.badRequest('Your cart is empty');
   }
@@ -212,6 +228,39 @@ export const createOrderFromCart = async ({ userId, guestName, shippingAddress, 
       await createInvoiceForOrder(order);
     } catch (sideEffectError) {
       console.error('Post-order side effects failed:', sideEffectError.message);
+    }
+
+    // Server-side Purchase event for Meta Conversions API. Mirrors the
+    // browser pixel's Purchase call exactly (same custom_data shape, same
+    // event_id: `purchase-${orderId}`) so Meta deduplicates the two into a
+    // single purchase instead of double-counting it. Never throws — a
+    // failure here can never affect the order that was already created.
+    try {
+      await sendMetaCapiEvent({
+        eventName: 'Purchase',
+        eventId: `purchase-${order._id}`,
+        eventSourceUrl,
+        customData: {
+          value: order.totalAmount,
+          currency: 'PKR',
+          content_type: 'product',
+          content_ids: order.items.map((item) => item.variantId ?? item.product),
+          contents: order.items.map((item) => ({
+            id: item.variantId ?? item.product,
+            quantity: item.quantity,
+            item_price: item.price,
+          })),
+          num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
+        },
+        email: trackingUser?.email,
+        phone: trackingUser?.phone || shippingAddress?.phone,
+        externalId: trackingUser?.id ?? trackingUser?._id,
+        fbp,
+        clientIp,
+        userAgent,
+      });
+    } catch (metaError) {
+      console.error('Meta CAPI Purchase event failed:', metaError.message);
     }
 
     return order;

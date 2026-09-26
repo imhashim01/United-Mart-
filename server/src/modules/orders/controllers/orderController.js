@@ -3,7 +3,13 @@ import { sendResponse } from '../../../utils/apiResponse.js';
 import * as orderService from '../services/orderService.js';
 
 export const createOrder = asyncHandler(async (req, res) => {
-  const order = await orderService.createOrderFromCart({ userId: req.user?.id ?? null, ...req.body });
+  const order = await orderService.createOrderFromCart({
+    userId: req.user?.id ?? null,
+    ...req.body,
+    trackingUser: req.user,
+    clientIp: req.ip,
+    userAgent: req.get('user-agent'),
+  });
   sendResponse(res, 201, order, 'Order placed successfully');
 });
 

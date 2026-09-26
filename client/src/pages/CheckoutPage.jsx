@@ -17,6 +17,8 @@ import DeliveryEstimate from "../features/checkout/components/DeliveryEstimate";
 import { useCartStore } from "../store/cartStore";
 import { useAuthStore } from "../features/auth/hooks/useAuth";
 import * as ordersApi from "../features/admin/orders/api/ordersApi";
+import { trackInitiateCheckout } from "../features/tracking/api/trackingApi";
+import { getFbp } from "../utils/fbCookies";
 import { formatPrice } from "../utils/formatCurrency";
 
 export default function CheckoutPage() {
@@ -92,6 +94,9 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
             phone: selectedAddress.phone || user?.phone || "",
           };
 
+      const fbp = getFbp();
+      const eventSourceUrl = window.location.href;
+
       const payload = {
         items: items.map((item) => ({
           productId: item.productId,
@@ -105,15 +110,32 @@ const minimumOrderAmount = useCartStore((s) => s.minimumOrderAmount());
         ...(couponCode ? { couponCode } : {}),
         ...(orderNotes ? { customerNote: orderNotes } : {}),
         ...(isGuest ? { guestName: formData.guestName } : {}),
+        // Forwarded so the backend can attach it to the server-side Purchase
+        // event's user_data once the order is actually created.
+        ...(fbp ? { fbp } : {}),
+        eventSourceUrl,
       };
 
+      const initiateCheckoutEventId = `checkout-${Date.now()}`;
       if (typeof window.fbq === "function") {
         window.fbq("track", "InitiateCheckout", {
           value: total,
           currency: "PKR",
           num_items: items.length,
-        }, { eventID: `checkout-${Date.now()}` });
+        }, { eventID: initiateCheckoutEventId });
       }
+      // Server-side mirror for Meta Conversions API, deduplicated against
+      // the browser event above via the shared event ID. Fire-and-forget —
+      // must never affect checkout if it fails.
+      trackInitiateCheckout({
+        eventId: initiateCheckoutEventId,
+        value: total,
+        numItems: items.length,
+        fbp,
+        email: user?.email,
+        phone: user?.phone,
+        eventSourceUrl,
+      }).catch(() => {});
 
       const { data } = await ordersApi.createOrder(payload);
       const createdOrder = data.data;

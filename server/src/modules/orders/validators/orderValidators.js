@@ -30,6 +30,10 @@ export const createOrderSchema = Joi.object({
   // Guest checkout only — the service enforces this (plus a phone on
   // shippingAddress) is present when the request has no logged-in user.
   guestName: Joi.string().trim().max(100).allow('', null),
+  // Raw _fbp cookie value, read client-side and forwarded so the backend
+  // can include it in the Meta Conversions API Purchase event's user_data.
+  fbp: Joi.string().trim().allow('', null),
+  eventSourceUrl: Joi.string().trim().allow('', null),
 });
 
 export const updateOrderStatusSchema = Joi.object({
