@@ -5,7 +5,10 @@ import { sendMetaCapiEvent } from '../../../utils/metaConversionsApi.js';
 export const trackAddToCart = asyncHandler(async (req, res) => {
   const { eventId, productId, productName, price, fbp, email, phone, eventSourceUrl } = req.body;
 
-  await sendMetaCapiEvent({
+  // Fire-and-forget: don't hold the response (and the function's billed
+  // CPU time) open waiting on Meta's reply. A failure here is logged but
+  // never affects the user-facing request.
+  sendMetaCapiEvent({
     eventName: 'AddToCart',
     eventId,
     eventSourceUrl,
@@ -22,7 +25,7 @@ export const trackAddToCart = asyncHandler(async (req, res) => {
     fbp,
     clientIp: req.ip,
     userAgent: req.get('user-agent'),
-  });
+  }).catch((err) => console.error('Meta CAPI AddToCart failed:', err.message));
 
   sendResponse(res, 200, null, 'Tracked');
 });
@@ -30,7 +33,7 @@ export const trackAddToCart = asyncHandler(async (req, res) => {
 export const trackInitiateCheckout = asyncHandler(async (req, res) => {
   const { eventId, value, numItems, fbp, email, phone, eventSourceUrl } = req.body;
 
-  await sendMetaCapiEvent({
+  sendMetaCapiEvent({
     eventName: 'InitiateCheckout',
     eventId,
     eventSourceUrl,
@@ -45,7 +48,7 @@ export const trackInitiateCheckout = asyncHandler(async (req, res) => {
     fbp,
     clientIp: req.ip,
     userAgent: req.get('user-agent'),
-  });
+  }).catch((err) => console.error('Meta CAPI InitiateCheckout failed:', err.message));
 
   sendResponse(res, 200, null, 'Tracked');
 });

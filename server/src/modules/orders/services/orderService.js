@@ -235,33 +235,31 @@ export const createOrderFromCart = async ({
     // event_id: `purchase-${orderId}`) so Meta deduplicates the two into a
     // single purchase instead of double-counting it. Never throws — a
     // failure here can never affect the order that was already created.
-    try {
-      await sendMetaCapiEvent({
-        eventName: 'Purchase',
-        eventId: `purchase-${order._id}`,
-        eventSourceUrl,
-        customData: {
-          value: order.totalAmount,
-          currency: 'PKR',
-          content_type: 'product',
-          content_ids: order.items.map((item) => item.variantId ?? item.product),
-          contents: order.items.map((item) => ({
-            id: item.variantId ?? item.product,
-            quantity: item.quantity,
-            item_price: item.price,
-          })),
-          num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
-        },
-        email: trackingUser?.email,
-        phone: trackingUser?.phone || shippingAddress?.phone,
-        externalId: trackingUser?.id ?? trackingUser?._id,
-        fbp,
-        clientIp,
-        userAgent,
-      });
-    } catch (metaError) {
+     sendMetaCapiEvent({
+      eventName: 'Purchase',
+      eventId: `purchase-${order._id}`,
+      eventSourceUrl,
+      customData: {
+        value: order.totalAmount,
+        currency: 'PKR',
+        content_type: 'product',
+        content_ids: order.items.map((item) => item.variantId ?? item.product),
+        contents: order.items.map((item) => ({
+          id: item.variantId ?? item.product,
+          quantity: item.quantity,
+          item_price: item.price,
+        })),
+        num_items: order.items.reduce((sum, item) => sum + item.quantity, 0),
+      },
+      email: trackingUser?.email,
+      phone: trackingUser?.phone || shippingAddress?.phone,
+      externalId: trackingUser?.id ?? trackingUser?._id,
+      fbp,
+      clientIp,
+      userAgent,
+    }).catch((metaError) => {
       console.error('Meta CAPI Purchase event failed:', metaError.message);
-    }
+    });
 
     return order;
   } catch (error) {
