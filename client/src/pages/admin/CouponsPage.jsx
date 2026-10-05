@@ -6,6 +6,7 @@ import AdminTableShell from "../../components/admin/AdminTableShell";
 import Badge from "../../components/ui/Badge";
 import { formatDate } from "../../utils/formatCurrency";
 import * as couponsApi from "../../features/admin/coupons/api/couponsApi";
+import { loadCategories } from "../../data/productsData";
 
 const normalizeCoupon = (coupon) => ({
   id: coupon.id ?? coupon._id,
@@ -20,19 +21,34 @@ const normalizeCoupon = (coupon) => ({
   validFrom: coupon.validFrom,
   validUntil: coupon.validUntil,
   isActive: coupon.isActive,
+  excludedCategoryIds: (coupon.excludedCategories ?? []).map((c) => String(c?._id ?? c?.id ?? c)),
 });
+
+const EMPTY_FORM = { code: "", type: "percent", value: "", minSpend: "", maxUses: "", expiresAt: "", status: "Active", excludedCategoryIds: [] };
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState("add");
   const [selectedCoupon, setSelectedCoupon] = useState(null);
-  const [form, setForm] = useState({ code: "", type: "percent", value: "", minSpend: "", maxUses: "", expiresAt: "", status: "Active" });
+  const [categories, setCategories] = useState([]);
+  const [form, setForm] = useState(EMPTY_FORM);
+
+  const categoryNameById = new Map(categories.map((c) => [String(c.id), c.name]));
+
+  const toggleExcludedCategory = (categoryId) => {
+    setForm((prev) => ({
+      ...prev,
+      excludedCategoryIds: prev.excludedCategoryIds.includes(categoryId)
+        ? prev.excludedCategoryIds.filter((id) => id !== categoryId)
+        : [...prev.excludedCategoryIds, categoryId],
+    }));
+  };
 
   const openAddModal = () => {
     setModalMode("add");
     setSelectedCoupon(null);
-    setForm({ code: "", type: "percent", value: "", minSpend: "", maxUses: "", expiresAt: "", status: "Active" });
+    setForm(EMPTY_FORM);
     setModalOpen(true);
   };
 
@@ -40,7 +56,7 @@ export default function CouponsPage() {
     const normalizedCoupon = normalizeCoupon(coupon);
     setModalMode("edit");
     setSelectedCoupon(normalizedCoupon);
-    setForm({ code: normalizedCoupon.code, type: normalizedCoupon.type, value: normalizedCoupon.value, minSpend: normalizedCoupon.minSpend, maxUses: normalizedCoupon.maxUses, expiresAt: normalizedCoupon.expiresAt, status: normalizedCoupon.status });
+    setForm({ code: normalizedCoupon.code, type: normalizedCoupon.type, value: normalizedCoupon.value, minSpend: normalizedCoupon.minSpend, maxUses: normalizedCoupon.maxUses, expiresAt: normalizedCoupon.expiresAt, status: normalizedCoupon.status, excludedCategoryIds: normalizedCoupon.excludedCategoryIds });
     setModalOpen(true);
   };
 
@@ -80,6 +96,7 @@ export default function CouponsPage() {
       validFrom: selectedCoupon?.validFrom ? new Date(selectedCoupon.validFrom).toISOString() : new Date().toISOString(),
       validUntil: new Date(`${form.expiresAt}T23:59:59`).toISOString(),
       isActive: form.status === "Active",
+      excludedCategories: form.excludedCategoryIds,
     };
 
     try {
@@ -101,6 +118,10 @@ export default function CouponsPage() {
       console.error("Save coupon failed:", error?.response || error.message);
     }
   };
+
+  useEffect(() => {
+    loadCategories().then((list) => setCategories(list ?? []));
+  }, []);
 
   // Load coupons on mount
   useEffect(() => {
@@ -148,6 +169,11 @@ export default function CouponsPage() {
                 <td className="px-4 py-3 text-charcoal-900">
                   {c.type === "percent" ? `${c.value}% off` : `Rs ${c.value} off`}
                   <span className="text-charcoal-600"> · min Rs {c.minSpend.toLocaleString()}</span>
+                  {c.excludedCategoryIds.length > 0 && (
+                    <div className="text-xs text-charcoal-600 mt-0.5">
+                      Excludes: {c.excludedCategoryIds.map((id) => categoryNameById.get(id) ?? "Deleted category").join(", ")}
+                    </div>
+                  )}
                 </td>
                 <td className="px-4 py-3 tabular-nums text-charcoal-600">{c.usedCount} / {c.maxUses}</td>
                 <td className="px-4 py-3 text-charcoal-600">{formatDate(c.expiresAt)}</td>
@@ -166,7 +192,7 @@ export default function CouponsPage() {
 
       {modalOpen && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-charcoal-900/50 px-4 py-6">
-          <div className="w-full max-w-2xl rounded-[var(--radius-lg)] bg-white p-6 shadow-xl">
+          <div className="w-full max-w-2xl max-h-full overflow-y-auto rounded-[var(--radius-lg)] bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-orchard-700">{modalMode === "add" ? "Create Coupon" : "Edit Coupon"}</p>
@@ -212,6 +238,25 @@ export default function CouponsPage() {
                   <option value="Expired">Expired</option>
                 </select>
               </label>
+              <fieldset className="md:col-span-2 text-sm font-medium text-charcoal-900">
+                <legend className="mb-1.5">Excluded categories</legend>
+                <p className="mb-2 text-xs font-normal text-charcoal-600">
+                  Items in these categories don&apos;t count toward the minimum spend and aren&apos;t discounted.
+                </p>
+                <div className="max-h-40 overflow-y-auto rounded-[var(--radius-sm)] border border-border-strong p-2 grid gap-1 sm:grid-cols-2">
+                  {categories.length === 0 && <p className="text-xs font-normal text-charcoal-600 px-1">No categories found.</p>}
+                  {categories.map((category) => (
+                    <label key={category.id} className="flex items-center gap-2 px-1 py-0.5 font-normal cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={form.excludedCategoryIds.includes(String(category.id))}
+                        onChange={() => toggleExcludedCategory(String(category.id))}
+                      />
+                      <span>{category.name}</span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <div className="md:col-span-2 flex justify-end gap-2 pt-2">
                 <button type="button" onClick={() => setModalOpen(false)} className="h-10 rounded-[var(--radius-md)] border border-border-strong px-4 text-sm font-semibold text-charcoal-900">Cancel</button>
                 <button type="submit" className="h-10 rounded-[var(--radius-md)] bg-orchard-900 px-4 text-sm font-semibold text-white">Save</button>

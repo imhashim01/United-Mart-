@@ -3,6 +3,7 @@ import Order from '../models/orderModel.js';
 import Cart from '../../cart/models/cartModel.js';
 import Product from '../../products/models/productModel.js';
 import Coupon from '../../coupons/models/couponModel.js';
+import { calculateEligibleSubtotal } from '../../coupons/services/couponService.js';
 import { ApiError } from '../../../utils/ApiError.js';
 import { ApiFeatures, buildPaginationMeta } from '../../../utils/apiFeatures.js';
 import { generateOrderNumber } from '../../../utils/generateInvoiceNumber.js';
@@ -120,7 +121,11 @@ export const createOrderFromCart = async ({
         // Guests have no persistent identity to track per-user usage against.
         const userUsage = userId ? foundCoupon.usersUsed.find((u) => u.user.toString() === userId.toString()) : null;
         const withinPerUserLimit = !userId || !userUsage || userUsage.count < foundCoupon.usageLimitPerUser;
-        const calculatedDiscount = foundCoupon.calculateDiscount(subtotal);
+        // Discount is based only on items the coupon applies to (excluded
+        // categories don't count), recomputed here from the database — the
+        // client's displayed discount is never trusted.
+        const { eligibleSubtotal } = await calculateEligibleSubtotal(items, foundCoupon, session);
+        const calculatedDiscount = foundCoupon.calculateDiscount(eligibleSubtotal);
         if (withinPerUserLimit && calculatedDiscount > 0) {
           discountAmount = calculatedDiscount;
           coupon = foundCoupon;

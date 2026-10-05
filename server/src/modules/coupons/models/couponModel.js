@@ -19,6 +19,9 @@ const couponSchema = new mongoose.Schema(
     ],
     applicableCategories: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }],
     applicableProducts: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }],
+    // Items whose primary category is listed here don't count toward
+    // minPurchaseAmount and aren't discounted. Empty = every item counts.
+    excludedCategories: { type: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Category' }], default: [] },
     validFrom: { type: Date, required: true, default: Date.now },
     validUntil: { type: Date, required: true },
     isActive: { type: Boolean, default: true },

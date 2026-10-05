@@ -10,6 +10,7 @@ export default function CouponInput() {
 
   const couponCode = useCartStore((s) => s.couponCode);
   const couponDiscount = useCartStore((s) => s.couponDiscount());
+  const couponMessage = useCartStore((s) => s.couponMessage);
   const applyCoupon = useCartStore((s) => s.applyCoupon);
   const removeCoupon = useCartStore((s) => s.removeCoupon);
 
@@ -78,8 +79,13 @@ const handleApply = async (e) => {
         </form>
       )}
 
+      {/* Set when a cart change made the applied coupon stop qualifying. */}
+      {couponCode && couponMessage && (
+        <p className="text-xs mt-2 text-danger-600">{couponMessage}</p>
+      )}
+
       <AnimatePresence>
-        {message && (
+        {message && !(couponCode && couponMessage) && (
           <motion.p
             initial={{ opacity: 0, y: -4 }}
             animate={{ opacity: 1, y: 0 }}

@@ -8,6 +8,15 @@ import { getSettings } from "../data/settingsData";
 
 const REWARD_POINT_VALUE = 1; // 1 point = Rs 1 when redeemed
 const POINTS_EARNED_PER_100 = 1; // 1 point per Rs 100 spent
+const COUPON_REVALIDATE_DELAY_MS = 400;
+
+// The coupon endpoint prices items and looks up their categories itself, so
+// only identifiers and quantities are sent.
+const toCouponCartItems = (items) =>
+  items.map((i) => ({ productId: i.productId, variantId: i.variantId || null, quantity: i.qty }));
+
+// Guards against an older, slower validation response overwriting a newer one.
+let couponRequestId = 0;
 
 
 
@@ -17,6 +26,8 @@ export const useCartStore = create(
       items: [], // { id, name, image, price, unit, qty, stock }
       couponCode: null,
       appliedCoupon: null, // { discountType, discountValue, maxDiscountAmount, minPurchaseAmount } — set only after the backend validates the code
+      couponDiscountAmount: 0, // the backend's discount for the current cart — the only source of the shown discount
+      couponMessage: null, // why an applied coupon currently gives no discount (e.g. not enough eligible items)
       rewardPointsAvailable: 0, // hydrated from GET /rewards/me by RewardPointsRedeem.jsx on mount
       rewardPointsToRedeem: 0,
 
@@ -113,16 +124,19 @@ export const useCartStore = create(
         });
       },
 
-      clearCart: () => set({ items: [], couponCode: null, appliedCoupon: null, rewardPointsToRedeem: 0 }),
+      clearCart: () =>
+        set({ items: [], couponCode: null, appliedCoupon: null, couponDiscountAmount: 0, couponMessage: null, rewardPointsToRedeem: 0 }),
 
       // Validates the code against the real backend (real coupons an admin
       // created, real min-spend/expiry/usage-limit rules) instead of a
       // hardcoded local table.
       applyCoupon: async (code) => {
         const trimmed = code.trim().toUpperCase();
-        const subtotal = get().subtotal();
+        const items = get().items;
+        if (items.length === 0) return { success: false, message: "Add items to your cart first." };
+        couponRequestId += 1; // drops any in-flight re-validation of an older coupon
         try {
-          const { data } = await couponsApi.validateCoupon({ code: trimmed, subtotal });
+          const { data } = await couponsApi.validateCoupon({ code: trimmed, items: toCouponCartItems(items) });
           const { coupon, discount } = data.data;
           set({
             couponCode: coupon.code,
@@ -132,7 +146,11 @@ export const useCartStore = create(
               maxDiscountAmount: coupon.maxDiscountAmount,
               minPurchaseAmount: coupon.minPurchaseAmount,
             },
+            couponDiscountAmount: discount,
+            couponMessage: null,
           });
+          // The cart changed while the request was in flight — re-check it.
+          if (get().items !== items) get().revalidateCoupon();
           return { success: true, message: `Coupon applied — you saved Rs ${discount.toLocaleString()}` };
         } catch (error) {
           return {
@@ -142,7 +160,35 @@ export const useCartStore = create(
         }
       },
 
-      removeCoupon: () => set({ couponCode: null, appliedCoupon: null }),
+      // Re-checks the applied coupon against the current cart so the shown
+      // discount always matches what the backend will charge. The coupon stays
+      // applied when it stops qualifying (e.g. an item was removed) — the
+      // discount drops to 0 with a message, and comes back if the cart grows.
+      revalidateCoupon: async () => {
+        const { couponCode, items } = get();
+        if (!couponCode) return;
+        const requestId = ++couponRequestId;
+        if (items.length === 0) {
+          set({ couponDiscountAmount: 0, couponMessage: null });
+          return;
+        }
+        try {
+          const { data } = await couponsApi.validateCoupon({ code: couponCode, items: toCouponCartItems(items) });
+          if (requestId !== couponRequestId || get().couponCode !== couponCode) return;
+          set({ couponDiscountAmount: data.data.discount, couponMessage: null });
+        } catch (error) {
+          if (requestId !== couponRequestId || get().couponCode !== couponCode) return;
+          set({
+            couponDiscountAmount: 0,
+            couponMessage: error?.response?.data?.message || "This coupon no longer applies to your cart.",
+          });
+        }
+      },
+
+      removeCoupon: () => {
+        couponRequestId += 1;
+        set({ couponCode: null, appliedCoupon: null, couponDiscountAmount: 0, couponMessage: null });
+      },
 
       setRewardPointsAvailable: (points) => set({ rewardPointsAvailable: points }),
 
@@ -154,20 +200,12 @@ export const useCartStore = create(
       // ---- Derived values ----
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.qty, 0),
 
-      // Mirrors the backend's Coupon.calculateDiscount so the shown amount
-      // stays correct if the cart changes after the coupon was applied —
-      // the actual charge is still recalculated and re-validated server-side
-      // at checkout, this is only for display.
+      // Comes from the backend's validation of the current cart (kept fresh by
+      // revalidateCoupon) — excluded categories make a local calculation
+      // impossible. The real charge is still recomputed server-side at checkout.
       couponDiscount: () => {
-        const coupon = get().appliedCoupon;
-        const subtotal = get().subtotal();
-        if (!coupon) return 0;
-        if (subtotal < coupon.minPurchaseAmount) return 0;
-        let discount = coupon.discountType === "percentage"
-          ? (subtotal * coupon.discountValue) / 100
-          : coupon.discountValue;
-        if (coupon.maxDiscountAmount != null) discount = Math.min(discount, coupon.maxDiscountAmount);
-        return Math.min(discount, subtotal);
+        if (!get().couponCode) return 0;
+        return Math.min(get().couponDiscountAmount || 0, get().subtotal());
       },
 
       rewardPointsDiscount: () => get().rewardPointsToRedeem * REWARD_POINT_VALUE,
@@ -198,3 +236,19 @@ export const useCartStore = create(
     { name: "united-mart-cart" }
   )
 );
+
+// Any change to the cart's items re-validates an applied coupon (debounced so
+// quick quantity clicks send one request).
+let couponRevalidateTimer = null;
+const scheduleCouponRevalidation = () => {
+  clearTimeout(couponRevalidateTimer);
+  couponRevalidateTimer = setTimeout(() => useCartStore.getState().revalidateCoupon(), COUPON_REVALIDATE_DELAY_MS);
+};
+
+useCartStore.subscribe((state, prevState) => {
+  if (state.couponCode && state.items !== prevState.items) scheduleCouponRevalidation();
+});
+
+// A coupon restored from a previous visit may have expired or been edited, or
+// was saved before the discount amount was stored — check it once on load.
+if (useCartStore.getState().couponCode) scheduleCouponRevalidation();
